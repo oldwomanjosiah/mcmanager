@@ -891,7 +891,10 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "console-subscriber",
+ "prost",
  "tokio",
+ "tonic",
+ "tonic-build",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1067,6 +1070,7 @@ dependencies = [
  "async-trait",
  "base64",
  "bytes",
+ "flate2",
  "futures-core",
  "futures-util",
  "h2",

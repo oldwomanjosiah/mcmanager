@@ -4,40 +4,52 @@ extern crate tokio;
 extern crate tracing;
 extern crate tracing_subscriber;
 
-use std::time::Duration;
-
 use clap::StructOpt;
-use tracing::Instrument;
 
 mod application;
 
+mod hello_world {
+    tonic::include_proto!("helloworld");
+
+    pub struct HelloWorldServiceImpl;
+
+    #[tonic::async_trait]
+    impl hello_world_service_server::HelloWorldService for HelloWorldServiceImpl {
+        async fn hello_world(
+            &self,
+            request: tonic::Request<HelloRequest>,
+        ) -> Result<tonic::Response<HelloResponse>, tonic::Status> {
+            Ok(tonic::Response::new(HelloResponse {
+                greeting: format!("Hello, {}!", request.into_inner().name),
+            }))
+        }
+    }
+}
+
+#[tracing::instrument]
+async fn launch_services() -> Result<(), tonic::transport::Error> {
+    tonic::transport::Server::builder()
+        .add_service(
+            hello_world::hello_world_service_server::HelloWorldServiceServer::new(
+                hello_world::HelloWorldServiceImpl,
+            ),
+        )
+        .serve("0.0.0.0:50051".parse().unwrap())
+        .await
+}
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     application::init_tracing();
 
     let args = application::Args::parse();
 
     tracing::info!("{:#?}", args);
 
-    // Test that the console is working currently
-    let tasks = (0..5)
-        .map(|i| {
-            tokio::task::Builder::new()
-                .name(&format!("Task {}", i))
-                .spawn(
-                    async move {
-                        for j in 0..10 {
-                            tracing::warn!("Task {} Iter {}", i, j);
-                            tokio::time::sleep(Duration::from_secs(5)).await;
-                        }
-                    }
-                    .instrument(tracing::info_span!("Printing Numbers")),
-                )
-        })
-        .collect::<Vec<_>>();
+    tokio::task::Builder::new()
+        .name("gRPC Server")
+        .spawn(launch_services())
+        .await??;
 
-    // wait for them all to complete
-    for task in tasks.into_iter() {
-        let _ = task.await;
-    }
+    Ok(())
 }

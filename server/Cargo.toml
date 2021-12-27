@@ -16,3 +16,10 @@ console-subscriber = { version = "0.1", features = [ "parking_lot" ] }
 
 # Application
 clap = { version = "3.0.0-rc.8", features = [ "derive" ] }
+
+# gRPC
+tonic = { version = "0.6", features = [ "compression" ] }
+prost = { version = "0.9" }
+
+[build-dependencies]
+tonic-build = { version = "0.6", features = [ "prost", "compression" ] }
