@@ -28,6 +28,7 @@ mod hello_world {
 
 #[tracing::instrument]
 async fn launch_services() -> Result<(), tonic::transport::Error> {
+    tracing::info!("Starting gRPC Server");
     tonic::transport::Server::builder()
         .add_service(
             hello_world::hello_world_service_server::HelloWorldServiceServer::new(
