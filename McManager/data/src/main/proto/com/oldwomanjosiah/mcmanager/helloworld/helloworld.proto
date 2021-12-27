@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package helloworld;
+
+option java_package = "com.oldwomanjosiah.mcmanager.helloworld";
+
+message HelloRequest {
+	string name = 1;
+}
+
+message HelloResponse {
+	string greeting = 1;
+}
+
+service HelloWorldService {
+	rpc HelloWorld (HelloRequest) returns (HelloResponse);
+}

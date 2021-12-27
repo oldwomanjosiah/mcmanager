@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package helloworld;
 
+option java_package = "com.oldwomanjosiah.mcmanager.helloworld";
+
 message HelloRequest {
 	string name = 1;
 }
