@@ -1,3 +1,4 @@
+extern crate clap;
 extern crate console_subscriber;
 extern crate tokio;
 extern crate tracing;
@@ -5,15 +6,18 @@ extern crate tracing_subscriber;
 
 use std::time::Duration;
 
+use clap::StructOpt;
 use tracing::Instrument;
-use tracing_subscriber::prelude::*;
+
+mod application;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::registry()
-        .with(console_subscriber::spawn())
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    application::init_tracing();
+
+    let args = application::Args::parse();
+
+    tracing::info!("{:#?}", args);
 
     // Test that the console is working currently
     let tasks = (0..5)
