@@ -19,8 +19,10 @@ mod hello_world {
             &self,
             request: tonic::Request<HelloRequest>,
         ) -> Result<tonic::Response<HelloResponse>, tonic::Status> {
+            let name = request.into_inner().name;
+            tracing::info!("Responding to {}", name);
             Ok(tonic::Response::new(HelloResponse {
-                greeting: format!("Hello, {}!", request.into_inner().name),
+                greeting: format!("Hello, {}!", name),
             }))
         }
     }
@@ -28,12 +30,14 @@ mod hello_world {
 
 #[tracing::instrument]
 async fn launch_services() -> Result<(), tonic::transport::Error> {
-    tracing::info!("Starting gRPC Server");
+    tracing::info!("Starting gRPC Server at 0.0.0.0:50051");
     tonic::transport::Server::builder()
         .add_service(
             hello_world::hello_world_service_server::HelloWorldServiceServer::new(
                 hello_world::HelloWorldServiceImpl,
-            ),
+            )
+            .accept_gzip()
+            .send_gzip(),
         )
         .serve("0.0.0.0:50051".parse().unwrap())
         .await

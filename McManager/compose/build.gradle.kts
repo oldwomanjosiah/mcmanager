@@ -17,7 +17,9 @@ repositories {
 
 dependencies {
     implementation(project(":data"))
+
     implementation(compose.desktop.currentOs)
+    implementation(Lib.Kotlinx.coroutinesCore)
 }
 
 tasks.withType<KotlinCompile>() {

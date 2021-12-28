@@ -17,6 +17,7 @@ version = "1.0"
 dependencies {
     api(Lib.Square.wireRuntime)
     api(Lib.Square.wireGrpcClient)
+    api(Lib.Square.okHttpClient)
 
     testImplementation(kotlin("test"))
 }
