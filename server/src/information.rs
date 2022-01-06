@@ -1,14 +1,14 @@
 //! Runtime Information Gathering
 
-use std::{future::Future, time::Duration};
+use std::time::Duration;
 
-use sysinfo::{ProcessorExt, RefreshKind, System, SystemExt};
+use sysinfo::{RefreshKind, System, SystemExt};
 use tokio::{
     select,
-    sync::watch::{self, channel, Receiver, Sender},
+    sync::watch::{channel, Receiver, Sender},
     time::sleep,
 };
-use tracing::{debug, info, info_span, instrument::Instrumented, trace, Instrument};
+use tracing::{debug, info, trace};
 
 pub type SystemInfo = Receiver<SystemSnapshot>;
 
