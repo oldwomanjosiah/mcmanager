@@ -5,8 +5,10 @@ extern crate tracing;
 extern crate tracing_subscriber;
 
 use clap::StructOpt;
+use tracing::info;
 
 mod application;
+mod information;
 
 mod hello_world {
     tonic::include_proto!("helloworld");
@@ -51,10 +53,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("{:#?}", args);
 
+    let rx = information::start_sysinfo();
+
     tokio::task::Builder::new()
         .name("gRPC Server")
         .spawn(launch_services())
         .await??;
+
+    info!("Ended with value: {:#?}", rx.borrow());
 
     Ok(())
 }

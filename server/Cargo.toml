@@ -13,6 +13,7 @@ tokio = { version = "1.15", features = [ "full", "tracing" ] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = [ "fmt", "json" ] }
 console-subscriber = { version = "0.1", features = [ "parking_lot" ] }
+tracing-futures = "0.2"
 
 # Application
 clap = { version = "3.0.0-rc.8", features = [ "derive" ] }
@@ -20,6 +21,9 @@ clap = { version = "3.0.0-rc.8", features = [ "derive" ] }
 # gRPC
 tonic = { version = "0.6", features = [ "compression" ] }
 prost = { version = "0.9" }
+
+# information
+sysinfo = "0.22"
 
 [build-dependencies]
 tonic-build = { version = "0.6", features = [ "prost", "compression" ] }
