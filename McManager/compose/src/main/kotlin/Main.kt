@@ -17,6 +17,10 @@ import com.oldwomanjosiah.mcmanager.data.getClient
 import com.oldwomanjosiah.mcmanager.helloworld.HelloRequest
 import com.oldwomanjosiah.mcmanager.helloworld.HelloWorldServiceClient
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class AppViewModel(
@@ -25,8 +29,14 @@ class AppViewModel(
     val client = getClient()
     val helloWorld = client.create<HelloWorldServiceClient>()
 
-    suspend fun getGreeting(name: String): String {
-        return helloWorld.HelloWorld().execute(HelloRequest(name = name)).greeting
+    private var responses = listOf<String>()
+
+    private val _responseFlow = MutableStateFlow(responses)
+    val reponseFlow: StateFlow<List<String>> = _responseFlow
+
+    fun getGreeting(name: String) = coroutinesScope.launch {
+        responses += helloWorld.HelloWorld().execute(HelloRequest(name = name)).greeting
+        _responseFlow.emit(responses)
     }
 }
 
@@ -37,7 +47,7 @@ fun App() {
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { AppViewModel(coroutineScope) }
     var currentName by remember { mutableStateOf("") }
-    val greetings = remember { mutableListOf<String>() }
+    val greetings by viewModel.reponseFlow.collectAsState(listOf())
 
     MaterialTheme {
         Column {
@@ -46,9 +56,7 @@ fun App() {
                     PaddingValues(end = 12.dp)
                 ))
                 Button(onClick = {
-                    coroutineScope.launch {
-                        greetings += viewModel.getGreeting(currentName)
-                    }
+                    viewModel.getGreeting(currentName)
                 }) {
                     Text("Submit")
                 }
