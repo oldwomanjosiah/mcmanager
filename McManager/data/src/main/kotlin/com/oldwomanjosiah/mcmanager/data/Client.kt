@@ -1,7 +1,6 @@
 package com.oldwomanjosiah.mcmanager.data
 
 import com.squareup.wire.GrpcClient
-import com.squareup.wire.Service
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 

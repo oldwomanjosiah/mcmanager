@@ -22,6 +22,8 @@ dependencies {
     api(kotlin("reflect", version = kotlinVersion))
 
     api("com.squareup.wire:wire-gradle-plugin:4.0.1")
+    api("org.jetbrains.dokka:dokka-gradle-plugin:1.6.10")
+    api("org.jetbrains.compose:compose-gradle-plugin:1.0.0")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {

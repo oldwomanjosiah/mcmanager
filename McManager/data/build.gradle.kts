@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm")
+    kotlinJvm
     wire
 }
 
@@ -28,4 +28,15 @@ tasks.test {
 
 tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "11"
+}
+
+tasks.dokkaHtml.configure {
+    dependsOn(wire)
+
+    dokkaSourceSets {
+        named("main") {
+            sourceRoots.builtBy(com.squareup.wire.gradle.WireTask)
+            suppressGeneratedFiles.set(false)
+        }
+    }
 }
