@@ -17,11 +17,13 @@ import com.oldwomanjosiah.mcmanager.data.getClient
 import com.oldwomanjosiah.mcmanager.helloworld.HelloRequest
 import com.oldwomanjosiah.mcmanager.helloworld.HelloWorldServiceClient
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
 
 class AppViewModel(
     val coroutinesScope: CoroutineScope
@@ -72,6 +74,7 @@ fun App() {
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() = application {
+
     Window(
         onCloseRequest = ::exitApplication,
     ) {

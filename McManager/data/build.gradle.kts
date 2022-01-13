@@ -1,3 +1,4 @@
+import com.squareup.wire.gradle.WireTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -8,6 +9,17 @@ plugins {
 wire {
     kotlin {
         rpcRole = "client"
+    }
+
+    sourcePath {
+        val srcDir = "${rootProject.rootDir.parent}/proto"
+
+        File(srcDir).run {
+            if (!exists()) throw IllegalStateException("Protobuf src dir does not exist: $srcDir")
+            if (!isDirectory) throw IllegalStateException("Protobuf src file exists but is not directory: $srcDir")
+        }
+
+        srcDir(srcDir)
     }
 }
 
@@ -30,12 +42,12 @@ tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "11"
 }
 
-tasks.dokkaHtml.configure {
-    dependsOn(wire)
+tasks.dokkaHtmlPartial.configure {
+    dependsOn("generateProtos")
 
     dokkaSourceSets {
         named("main") {
-            sourceRoots.builtBy(com.squareup.wire.gradle.WireTask)
+            sourceRoots.builtBy("generateProtos")
             suppressGeneratedFiles.set(false)
         }
     }
