@@ -13,46 +13,63 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.oldwomanjosiah.mcmanager.base.models.Presenter
+import com.oldwomanjosiah.mcmanager.base.models.launchState
 import com.oldwomanjosiah.mcmanager.data.getClient
 import com.oldwomanjosiah.mcmanager.helloworld.HelloRequest
 import com.oldwomanjosiah.mcmanager.helloworld.HelloWorldServiceClient
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-import kotlin.coroutines.CoroutineContext
+import dispatch.core.DefaultCoroutineScope
+import dispatch.core.defaultDispatcher
+import dispatch.core.withDefault
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+
+data class AppViewState(
+    val responses: List<String>
+)
 
 class AppViewModel(
-    val coroutinesScope: CoroutineScope
-) {
+    coroutinesScope: CoroutineScope
+) : Presenter<AppViewState>(coroutinesScope) {
+
+    private val newGreetings = MutableSharedFlow<String>(extraBufferCapacity = 10)
+
+    override val state = launchState {
+        var responses by remember { mutableStateOf(listOf<String>()) }
+
+        LaunchedEffect(Unit) {
+            newGreetings.collect { responses += it }
+        }
+
+        AppViewState(responses = responses)
+    }
+
     val client = getClient()
-    val helloWorld = client.create<HelloWorldServiceClient>()
+    val helloWorld: HelloWorldServiceClient = client.create()
 
-    private var responses = listOf<String>()
-
-    private val _responseFlow = MutableStateFlow(responses)
-    val reponseFlow: StateFlow<List<String>> = _responseFlow
-
-    fun getGreeting(name: String) = coroutinesScope.launch {
-        responses += helloWorld.HelloWorld().execute(HelloRequest(name = name)).greeting
-        _responseFlow.emit(responses)
+    fun getGreeting(name: String) {
+        coroutineScope.launch {
+            newGreetings.emit(
+                helloWorld
+                    .HelloWorld()
+                    .execute(HelloRequest(name = name))
+                    .greeting
+            )
+        }
     }
 }
 
 @Composable
 @Preview
 fun App() {
-    var text by remember { mutableStateOf("Hello, World!") }
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { AppViewModel(coroutineScope) }
     var currentName by remember { mutableStateOf("") }
-    val greetings by viewModel.reponseFlow.collectAsState(listOf())
+
+    val state = viewModel.collectState()
 
     MaterialTheme {
-        Column {
+        Column(Modifier.padding(24.dp)) {
             Row {
                 TextField(value = currentName, onValueChange = { currentName = it }, modifier = Modifier.padding(
                     PaddingValues(end = 12.dp)
@@ -63,9 +80,10 @@ fun App() {
                     Text("Submit")
                 }
             }
+
             Spacer(modifier = Modifier.padding(PaddingValues(bottom = 24.dp)))
 
-            greetings.forEach { greeting ->
+            state.responses.forEach { greeting ->
                 Text(greeting, modifier = Modifier.padding(PaddingValues(bottom = 12.dp)))
             }
         }
@@ -74,16 +92,9 @@ fun App() {
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() = application {
-
     Window(
         onCloseRequest = ::exitApplication,
     ) {
-        MenuBar {
-            Menu("McManager", mnemonic = 'M') {
-                Item("Quit", shortcut = KeyShortcut(Key.Q, ctrl = true), onClick = ::exitApplication)
-            }
-        }
-
         App()
     }
 }

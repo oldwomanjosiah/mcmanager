@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.5.31"
+    kotlin("jvm") version "1.6.10"
     `kotlin-dsl`
 }
 
@@ -13,7 +13,7 @@ repositories {
 dependencies {
     implementation(gradleApi())
 
-    val kotlinVersion = "1.5.31"
+    val kotlinVersion = "1.6.10"
 
     api(kotlin("gradle-plugin", version = kotlinVersion))
     api(kotlin("stdlib", version = kotlinVersion))
@@ -23,7 +23,7 @@ dependencies {
 
     api("com.squareup.wire:wire-gradle-plugin:4.0.1")
     api("org.jetbrains.dokka:dokka-gradle-plugin:1.6.10")
-    api("org.jetbrains.compose:compose-gradle-plugin:1.0.0")
+    api("org.jetbrains.compose:compose-gradle-plugin:1.0.1")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {

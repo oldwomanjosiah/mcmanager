@@ -7,7 +7,7 @@ pluginManagement {
     }
 
     plugins {
-        kotlin("jvm") version "1.5.31"
+        kotlin("jvm") version "1.6.10"
     }
 }
 
@@ -15,6 +15,7 @@ rootProject.name = "McManager"
 
 include(
     ":compose",
-    ":data"
+    ":data",
+    ":base:models"
 )
 

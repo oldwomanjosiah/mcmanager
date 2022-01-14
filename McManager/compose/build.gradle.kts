@@ -12,9 +12,11 @@ version = "1.0"
 
 dependencies {
     implementation(project(":data"))
+    implementation(project(":base:models"))
 
     implementation(compose.desktop.currentOs)
     implementation(Lib.Kotlinx.coroutinesCore)
+    implementation(Lib.RBusarow.dispatchCore)
 }
 
 tasks.withType<KotlinCompile>() {
