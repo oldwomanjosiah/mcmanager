@@ -7,9 +7,7 @@ plugins {
 }
 
 wire {
-    kotlin {
-        rpcRole = "client"
-    }
+    kotlin {}
 
     sourcePath {
         val srcDir = "${rootProject.rootDir.parent}/proto"

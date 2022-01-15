@@ -10,29 +10,14 @@ use tokio::{
 };
 use tracing::{debug, info, trace};
 
+use crate::events::SystemSnapshot;
+
 pub type SystemInfo = Receiver<SystemSnapshot>;
-
-#[derive(Clone, Copy, Debug)]
-pub struct SystemSnapshot {
-    timestamp: u64,
-    cpu_pressure: f64,
-    mem_pressure: f32,
-}
-
-impl SystemSnapshot {
-    pub(self) fn new() -> Self {
-        Self {
-            timestamp: 0,
-            cpu_pressure: 0.0,
-            mem_pressure: 0.0,
-        }
-    }
-}
 
 /// Start a task to update a [`SystemSnapshot`] and a receiver that allows you to check the current
 /// values
 pub fn start_sysinfo() -> SystemInfo {
-    let (tx, rx) = channel(SystemSnapshot::new());
+    let (tx, rx) = channel(SystemSnapshot::default());
 
     tokio::task::Builder::new()
         .name("Sysinfo watch")
@@ -56,7 +41,7 @@ async fn system_information_task(tx: Sender<SystemSnapshot>) {
             _ = sleep(Duration::from_secs(3)) => {},
         }
 
-        let timestamp = std::time::SystemTime::now()
+        let unixtime = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("Unexpected Time from Before Unix Epoch")
             .as_secs();
@@ -66,11 +51,11 @@ async fn system_information_task(tx: Sender<SystemSnapshot>) {
         });
 
         //let cpu_pressure: f32 = system.processors().iter().map(|it| it.cpu_usage()).sum();
-        let cpu_pressure = system.load_average().one;
+        let cpu_pressure = system.load_average().one as _;
         let mem_pressure: f32 = system.used_memory() as f32 / system.total_memory() as f32;
 
         let snapshot = SystemSnapshot {
-            timestamp,
+            unixtime,
             cpu_pressure,
             mem_pressure,
         };

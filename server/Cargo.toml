@@ -8,6 +8,9 @@ edition = "2021"
 [dependencies]
 # Runtime
 tokio = { version = "1.15", features = [ "full", "tracing" ] }
+futures = "0.3"
+async-stream = "0.3"
+tokio-stream = { version = "0.1", features = [ "sync" ] }
 
 # Logging
 tracing = "0.1"

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package event;
+
+option java_package = "com.oldwomanjosiah.mcmanager.event";
+
+message SystemSnapshot {
+	uint64 unixtime = 1; // The unix time stamp at which the snapshot was taken
+	float cpu_pressure = 2;
+	float mem_pressure = 3;
+}
+
+message Event {
+	oneof event {
+		SystemSnapshot system_snapshot = 1;
+	}
+}
+
+message EventSubscription {
+	uint32 id = 1;
+}
+
+service Events {
+	rpc Subscribe (EventSubscription) returns (stream Event);
+	rpc Snapshot (EventSubscription) returns (Event);
+}

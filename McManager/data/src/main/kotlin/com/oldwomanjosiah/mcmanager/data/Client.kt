@@ -11,7 +11,13 @@ fun getClient() = GrpcClient.Builder()
         OkHttpClient
             .Builder()
             .protocols(listOf(Protocol.H2_PRIOR_KNOWLEDGE))
-            // .addInterceptor()
+            .addInterceptor {
+                val request = it.request()
+                println("Making Request to ${request.url}")
+                val resp = it.proceed(request)
+                println("Got Response from ${request.url}")
+                resp
+            }
             .build()
     )
     .baseUrl(SERVER_URL)
