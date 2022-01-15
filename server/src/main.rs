@@ -8,14 +8,14 @@ extern crate tracing_subscriber;
 #[macro_use]
 extern crate async_stream;
 
-use std::pin::Pin;
+
 
 use clap::StructOpt;
-use futures::Stream;
+
 use information::SystemInfo;
-use tonic::{Response, Status};
-use tracing::{debug_span, info, info_span, warn_span};
-use tracing_futures::Instrument;
+
+use tracing::{info};
+
 
 mod application;
 mod information;
@@ -24,7 +24,7 @@ mod util;
 
 use prelude::*;
 
-use tonic::transport::NamedService;
+
 
 mod hello_world {
     use crate::{information::SystemInfo, prelude::*};
@@ -56,7 +56,7 @@ mod events {
         tonic::include_proto!("event");
     }
 
-    use futures::Stream;
+    
     use tokio_stream::StreamExt;
     // Re-Exports
     pub use proto::events_server::EventsServer;
@@ -108,7 +108,7 @@ mod events {
 
         async fn snapshot(
             &self,
-            request: Request<EventSubscription>,
+            _request: Request<EventSubscription>,
         ) -> Result<Response<Event>, Status> {
             Ok(Event {
                 event: Some(EventInner::SystemSnapshot(
