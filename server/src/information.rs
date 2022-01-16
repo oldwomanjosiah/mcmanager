@@ -22,7 +22,7 @@ pub fn start_sysinfo() -> SystemInfo {
         .name("Sysinfo watch")
         .spawn(system_information_task(tx));
 
-    return rx; // .instrument(info_span!("Checking System Info"));
+    rx // .instrument(info_span!("Checking System Info"));
 }
 
 async fn system_information_task(tx: Sender<SystemSnapshot>) {
@@ -61,12 +61,9 @@ async fn system_information_task(tx: Sender<SystemSnapshot>) {
 
         debug!("Sysinfo snapshot: {:#?}", snapshot);
 
-        match tx.send(snapshot) {
-            Err(_) => {
-                info!("Last Receiver Closed for sysinfo while calculating, stopping");
-                break;
-            }
-            _ => (),
+        if tx.send(snapshot).is_err() {
+            info!("Last Receiver Closed for sysinfo while calculating, stopping");
+            break;
         }
     }
 }

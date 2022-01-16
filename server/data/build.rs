@@ -1,8 +1,8 @@
-const PROTOS: &'static [&'static str] = &[
+const PROTOS: &[&str] = &[
     "proto/helloworld/helloworld.proto",
     "proto/event/event.proto",
 ];
-const INCLUDES: &'static [&'static str] = &["proto"];
+const INCLUDES: &[&str] = &["proto"];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()

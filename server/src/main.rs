@@ -41,7 +41,7 @@ mod hello_world {
 
             tracing::info!("Responding to {}", name);
 
-            Ok(HelloResponse { greeting }.as_msg())
+            Ok(HelloResponse { greeting }.into_msg())
         }
     }
 }
@@ -84,7 +84,7 @@ mod events {
                     }
                 }
             }
-            .as_msg())
+            .into_msg())
         }
 
         async fn snapshot(
@@ -94,7 +94,7 @@ mod events {
             Ok(EventResponse {
                 event: Some(Event::SystemSnapshot(self.system_info.borrow().clone())),
             }
-            .as_msg())
+            .into_msg())
         }
     }
 }

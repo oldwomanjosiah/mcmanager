@@ -4,11 +4,17 @@ use futures::Stream;
 use prost::Message;
 use tokio::sync::watch::Receiver;
 use tokio_stream::wrappers::WatchStream;
-use tonic::{transport::NamedService, Response};
+use tonic::{Response, Status};
+
+// Common Type Constructors
+pub type StreamResponse<T, E = Status> = std::result::Result<Response<StreamDescriptor<T, E>>, E>;
+
+pub type StreamDescriptor<T, E = Status> =
+    Pin<Box<dyn Stream<Item = std::result::Result<T, E>> + Send + 'static>>;
 
 /// Turn a type into a [`Response`]
 pub trait IntoMessage {
-    fn as_msg(self) -> Response<Self>
+    fn into_msg(self) -> Response<Self>
     where
         Self: Sized;
 }
@@ -16,7 +22,7 @@ pub trait IntoMessage {
 /// Represents types which can be pinned as a streaming ['Response']
 /// See Also: [`Stream`]
 pub trait IntoMessageStream<T, E> {
-    fn as_msg(self) -> Response<Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>>
+    fn into_msg(self) -> Response<StreamDescriptor<T, E>>
     where
         Self: Sized;
 }
@@ -27,7 +33,7 @@ impl<T> IntoMessage for T
 where
     T: Message,
 {
-    fn as_msg(self) -> Response<Self>
+    fn into_msg(self) -> Response<Self>
     where
         Self: Sized,
     {
@@ -40,7 +46,7 @@ where
     S: Stream<Item = Result<T, E>> + Send + 'static,
     T: Message,
 {
-    fn as_msg(self) -> Response<Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>>
+    fn into_msg(self) -> Response<StreamDescriptor<T, E>>
     where
         Self: Sized,
     {

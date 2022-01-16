@@ -10,7 +10,7 @@ use tracing_subscriber::{
     Layer,
 };
 
-pub const DEFAULT_CONFIG_LOCATION: &'static str = "./server.config.yml";
+pub const DEFAULT_CONFIG_LOCATION: &str = "./server.config.yml";
 
 #[derive(clap::Parser, Clone)]
 pub struct Args {
@@ -47,7 +47,7 @@ pub fn init_tracing() {
         // reasonable default.
         std::env::var("RUST_LOG")
             .map(|it| it.parse().expect("Could not parse value of RUST_LOG"))
-            .unwrap_or(Targets::default().with_default(LevelFilter::INFO)),
+            .unwrap_or_else(|_| Targets::default().with_default(LevelFilter::INFO)),
     );
 
     let console_layer = console_subscriber::spawn();
