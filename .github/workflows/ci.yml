@@ -10,15 +10,18 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cd server
       - name: Build
         working-directory: ./server
         uses: actions-rs/cargo@v1
+        env:
+          PWD: ${{ env.PWD }}/server
         with:
           command: build
           args: --release
       - name: Run All Tests
         working-directory: ./server
         uses: actions-rs/cargo@v1
+        env:
+          PWD: ${{ env.PWD }}/server
         with:
           command: test
