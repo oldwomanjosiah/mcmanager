@@ -10,8 +10,7 @@ use tokio::{
 };
 use tracing::{debug, info, trace};
 
-use crate::events::SystemSnapshot;
-
+use data::events::SystemSnapshot;
 pub type SystemInfo = Receiver<SystemSnapshot>;
 
 /// Start a task to update a [`SystemSnapshot`] and a receiver that allows you to check the current

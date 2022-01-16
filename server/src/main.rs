@@ -8,14 +8,11 @@ extern crate tracing_subscriber;
 #[macro_use]
 extern crate async_stream;
 
-
-
 use clap::StructOpt;
 
+use data::IntoServer;
 use information::SystemInfo;
-
-use tracing::{info};
-
+use tracing::info;
 
 mod application;
 mod information;
@@ -24,19 +21,17 @@ mod util;
 
 use prelude::*;
 
-
-
 mod hello_world {
-    use crate::{information::SystemInfo, prelude::*};
+    use crate::information::SystemInfo;
+    use crate::prelude::*;
+    use data::hello::*;
 
-    tonic::include_proto!("helloworld");
-
-    pub struct HelloWorldServiceImpl {
+    pub struct HelloWorldImpl {
         pub sysinfo: SystemInfo,
     }
 
     #[tonic::async_trait]
-    impl hello_world_service_server::HelloWorldService for HelloWorldServiceImpl {
+    impl HelloWorld for HelloWorldImpl {
         async fn hello_world(
             &self,
             request: tonic::Request<HelloRequest>,
@@ -52,37 +47,23 @@ mod hello_world {
 }
 
 mod events {
-    mod proto {
-        tonic::include_proto!("event");
-    }
-
-    
-    use tokio_stream::StreamExt;
-    // Re-Exports
-    pub use proto::events_server::EventsServer;
-    pub use proto::Event;
-    pub use proto::SystemSnapshot;
-
-    use proto::event::Event as EventInner;
-    use proto::EventSubscription;
-    use tonic::Code;
-    use tonic::Request;
-    use tonic::Response;
-    use tonic::Status;
-    use tracing::log::info;
-
-    use crate::information::SystemInfo;
-    use crate::prelude::*;
+    use crate::{information::SystemInfo, prelude::*};
+    use data::events::*;
+    use tonic::{Code, Request, Response, Status};
+    use tracing::info;
 
     pub struct EventsService {
         pub system_info: SystemInfo,
     }
 
     #[tonic::async_trait]
-    impl proto::events_server::Events for EventsService {
-        type SubscribeStream = StreamDescriptor<Event>;
+    impl Events for EventsService {
+        type SubscribeStream = StreamDescriptor<EventResponse>;
 
-        async fn subscribe(&self, request: Request<EventSubscription>) -> StreamResponse<Event> {
+        async fn subscribe(
+            &self,
+            request: Request<EventSubscription>,
+        ) -> StreamResponse<EventResponse> {
             let system_info = self.system_info.clone();
 
             Ok(stream! {
@@ -96,8 +77,8 @@ mod events {
                 loop {
                     let info = system_info.next().await;
                     yield match info {
-                        Some(info) => Ok(Event {
-                            event: Some(EventInner::SystemSnapshot(info)),
+                        Some(info) => Ok(EventResponse {
+                            event: Some(Event::SystemSnapshot(info)),
                         }),
                         None => Err(Status::new(Code::Ok, "System Information Collector Was Cancelled")),
                     }
@@ -109,11 +90,9 @@ mod events {
         async fn snapshot(
             &self,
             _request: Request<EventSubscription>,
-        ) -> Result<Response<Event>, Status> {
-            Ok(Event {
-                event: Some(EventInner::SystemSnapshot(
-                    self.system_info.borrow().clone(),
-                )),
+        ) -> Result<Response<EventResponse>, Status> {
+            Ok(EventResponse {
+                event: Some(Event::SystemSnapshot(self.system_info.borrow().clone())),
             }
             .as_msg())
         }
@@ -127,19 +106,12 @@ async fn launch_services(sysinfo: SystemInfo) -> Result<()> {
     tonic::transport::Server::builder()
         .concurrency_limit_per_connection(32)
         .add_service(
-            events::EventsServer::new(events::EventsService {
+            events::EventsService {
                 system_info: sysinfo.clone(),
-            })
-            .accept_gzip()
-            .send_gzip(),
+            }
+            .into_server(),
         )
-        .add_service(
-            hello_world::hello_world_service_server::HelloWorldServiceServer::new(
-                hello_world::HelloWorldServiceImpl { sysinfo },
-            )
-            .accept_gzip()
-            .send_gzip(),
-        )
+        .add_service(hello_world::HelloWorldImpl { sysinfo }.into_server())
         .serve("0.0.0.0:50051".parse()?)
         .await
         .context("Running Tonic Unauthenticated Server")

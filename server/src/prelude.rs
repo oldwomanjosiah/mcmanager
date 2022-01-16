@@ -11,6 +11,7 @@ pub use crate::util::IntoMessage;
 pub use crate::util::IntoMessageStream;
 pub use anyhow::Context;
 pub use anyhow::Result;
+pub use futures::StreamExt;
 
 // Common Type Constructors
 
