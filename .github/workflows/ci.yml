@@ -12,11 +12,13 @@ jobs:
           toolchain: stable
       - run: cd server
       - name: Build
+        working-directory: ./server
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release
       - name: Run All Tests
+        working-directory: ./server
         uses: actions-rs/cargo@v1
         with:
           command: test
