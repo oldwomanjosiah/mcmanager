@@ -57,7 +57,7 @@ pub mod tokens {
         #[error("Error while attempting to decode a token from base64: {0}")]
         Base64Encoding(#[from] base64::DecodeError),
 
-        #[error("Error while attempting to deserialize a token: {0}")]
+        #[error("Error while attempting to serialize or deserialize a token: {0}")]
         JsonFormat(#[from] serde_json::error::Error),
     }
 

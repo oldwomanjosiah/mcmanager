@@ -87,7 +87,7 @@ fn create_default_store(
     let store = AuthStore::default_store();
 
     let mut file = File::create(path).map_err(StoreError::FileWriteError)?;
-    let store_string = serde_json::to_writer(&mut file, &store);
+    serde_json::to_writer(&mut file, &store)?;
     file.flush().map_err(StoreError::FileWriteError)?;
 
     Ok(store)
