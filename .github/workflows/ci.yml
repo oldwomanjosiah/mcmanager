@@ -11,6 +11,12 @@ jobs:
         with:
           toolchain: stable
       - name: Build
-        run: "cd server && cargo build"
+        uses: MarcoPolo/cargo@a527bf4d534717ff4424a84446c5d710f8833139
+        with:
+          command: build
+          working-directory: server
       - name: Run All Tests
-        run: "cd server && cargo test"
+        uses: MarcoPolo/cargo@a527bf4d534717ff4424a84446c5d710f8833139
+        with:
+          command: test
+          working-directory: server
