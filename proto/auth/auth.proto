@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package auth;
+
+option java_package = "com.oldwomanjosiah.mcmanager.auth";
+
+message AuthRequest {
+	string username = 1;
+	string password = 2;
+}
+
+enum FailureReason {
+	NO_USER = 0; // No user was found with this username
+	INCORRECT_PASS = 1; // The password was not correct
+	TOKEN_EXPIRED = 2; // The Refresh Token Given Has Expired
+}
+
+// Represents a successful authroization request
+message Tokens {
+	string access = 1; // The Access Token to be used
+	uint64 access_expiry = 2; // Unix Timestamp when access expires
+	string refresh = 3; // The Refresh Token to be used
+	uint64 refresh_expiry = 4; // Unix Timestamp when refresh expires
+}
+
+message AuthResponse {
+
+	// Should never be None/null
+	oneof Authorization {
+		Tokens token = 1;
+		FailureReason failure = 2;
+	}
+}
+
+message RefreshRequest {
+	string refresh = 1;
+}
+
+service Auth {
+	rpc Authenticate (AuthRequest) returns (AuthResponse);
+	rpc Refresh (RefreshRequest) returns (AuthResponse);
+}
+

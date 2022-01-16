@@ -1,8 +1,5 @@
 //! Protocol Buffer Data Definitions for mcmanager
 
-mod prelude;
-mod util;
-
 macro_rules! doc_inline {
     () => {};
     (
@@ -43,6 +40,7 @@ macro_rules! server {
     };
 }
 
+/// Event Subscriptions and System Snapshots
 pub mod events {
 
     mod proto {
@@ -76,4 +74,24 @@ pub mod hello {
 
     use proto::hello_world_service_server::HelloWorldServiceServer as HelloWorldServer;
     server!(HelloWorldServer, HelloWorld);
+}
+
+pub mod auth {
+    mod proto {
+        tonic::include_proto!("auth");
+    }
+
+    doc_inline! {
+        pub use proto::AuthRequest;
+        pub use proto::FailureReason;
+        pub use proto::Tokens;
+        pub use proto::AuthResponse;
+        pub use proto::auth_response::Authorization;
+        pub use proto::RefreshRequest;
+
+        pub use proto::auth_server::Auth;
+    }
+
+    use proto::auth_server::AuthServer;
+    server!(AuthServer, Auth);
 }
