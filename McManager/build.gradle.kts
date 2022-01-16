@@ -1,3 +1,5 @@
+import com.fasterxml.jackson.module.kotlin.kotlinModule
+
 plugins {
     id("org.jetbrains.dokka")
 }
@@ -9,8 +11,4 @@ allprojects {
     repositories {
         mavenCentral()
     }
-}
-
-tasks.dokkaHtml.configure {
-    outputDirectory.set(buildDir.resolve("dokka"))
 }
