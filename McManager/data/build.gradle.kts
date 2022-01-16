@@ -25,9 +25,7 @@ group = "me.josiah"
 version = "1.0"
 
 dependencies {
-    api(Lib.Square.wireRuntime)
-    api(Lib.Square.wireGrpcClient)
-    api(Lib.Square.okHttpClient)
+    api(project(path = ":base:data"))
 
     testImplementation(kotlin("test"))
 }

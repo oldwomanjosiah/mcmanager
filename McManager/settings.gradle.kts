@@ -14,8 +14,9 @@ pluginManagement {
 rootProject.name = "McManager"
 
 include(
+    ":base:data",
+    ":base:models",
     ":compose",
     ":data",
-    ":base:models"
 )
 

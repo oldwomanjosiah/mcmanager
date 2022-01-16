@@ -1,5 +1,4 @@
 // Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
-import androidx.compose.animation.core.snap
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.oldwomanjosiah.mcmanager.base.data.startReceiving
 import com.oldwomanjosiah.mcmanager.base.models.Presenter
 import com.oldwomanjosiah.mcmanager.base.models.launchState
 import com.oldwomanjosiah.mcmanager.data.getClient
@@ -21,7 +21,6 @@ import com.oldwomanjosiah.mcmanager.event.EventSubscription
 import com.oldwomanjosiah.mcmanager.event.EventsClient
 import com.oldwomanjosiah.mcmanager.helloworld.HelloRequest
 import com.oldwomanjosiah.mcmanager.helloworld.HelloWorldServiceClient
-import dispatch.core.withIO
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -41,20 +40,11 @@ class AppViewModel(
         var events by remember { mutableStateOf(listOf<Event>()) }
 
         LaunchedEffect(Unit) {
-            println("Pre exe")
-            val (request, resp) = eventClient.Subscribe().executeIn(this + Dispatchers.IO)
-
-            println("Starting Send")
-
-            request.send(EventSubscription(1))
-            request.close()
-
-            println("Starting Recv")
+            val resp = eventClient.Subscribe().startReceiving(this, EventSubscription(1))
 
             launch {
                 listOf(
-                    resp.consumeAsFlow()
-                        .catch { println("Failed to make request: $it") }
+                    resp.catch { println("Failed to make request: $it") }
                         .onEach { events += it },
                     newGreetings.onEach { responses += it }
                 ).merge().collect()
