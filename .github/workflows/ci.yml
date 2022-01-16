@@ -11,15 +11,6 @@ jobs:
         with:
           toolchain: stable
       - name: Build
-        uses: actions-rs/cargo@v1
-        env:
-          PWD: ${{ env.PWD }}/server
-        with:
-          command: build
-          args: --release
+        run: "cd server && cargo buld --release"
       - name: Run All Tests
-        uses: actions-rs/cargo@v1
-        env:
-          PWD: ${{ env.PWD }}/server
-        with:
-          command: test
+        run: "cd server && cargo test"
