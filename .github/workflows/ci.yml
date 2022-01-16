@@ -11,6 +11,6 @@ jobs:
         with:
           toolchain: stable
       - name: Build
-        run: "cd server && cargo buld --release"
+        run: "cd server && cargo build --release"
       - name: Run All Tests
         run: "cd server && cargo test"
