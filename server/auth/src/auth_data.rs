@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,25 +10,26 @@ pub enum AuthLevel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserAuthorization {
-    pub username: String,
     pub password: String,
     pub auth_level: AuthLevel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthStore {
-    pub users: Vec<UserAuthorization>,
+    pub users: HashMap<String, UserAuthorization>,
 }
 
 impl AuthStore {
     /// Create a Default User Store to be written to a file
     pub fn default_store() -> Self {
         Self {
-            users: Vec::from([UserAuthorization {
-                username: "admin".into(),
-                password: "mcmanager".into(),
-                auth_level: AuthLevel::Admin,
-            }]),
+            users: HashMap::from([(
+                "admin".into(),
+                UserAuthorization {
+                    password: "mcmanager".into(),
+                    auth_level: AuthLevel::Admin,
+                },
+            )]),
         }
     }
 }
@@ -71,4 +74,10 @@ pub mod tokens {
 
     impl TokenPart for AuthToken {}
     impl TokenPart for RefreshToken {}
+
+    #[derive(Debug, Clone)]
+    pub struct TokenPair {
+        pub auth: AuthToken,
+        pub refresh: RefreshToken,
+    }
 }

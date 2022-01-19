@@ -7,11 +7,11 @@ use std::{
     sync::Arc,
 };
 
-use futures::{lock::Mutex, TryFutureExt};
+use futures::lock::Mutex;
 use thiserror::Error;
 use tracing::{error, warn};
 
-use crate::auth_data::AuthStore;
+use crate::auth_data::{tokens::TokenPair, AuthStore};
 
 /// Errors that can occur while interacting with an AuthStore
 #[derive(Debug, Error)]
@@ -23,7 +23,7 @@ pub enum StoreError {
     FileWriteError(#[source] std::io::Error),
 
     #[error("Encountered Error While Attempting to Deserialize AuthStore {0}")]
-    DeserializeError(#[from] serde_json::error::Error),
+    DeserializeError(#[from] serde_yaml::Error),
 }
 
 /// Configuration for an [`AuthManager`]
@@ -42,6 +42,20 @@ impl AuthManager {
         let inner = Arc::new(Mutex::new(AuthManagerInner::new(config)?));
 
         Ok(Self { inner })
+    }
+
+    pub fn validate(config: &AuthManagerConfig, creating: bool) -> Result<(), StoreError> {
+        match (creating, load_store_from_file(&config.users_file)) {
+            (true, Err(e)) => create_default_store(&config.users_file, e),
+            (_, l) => l,
+        }
+        .map(|_| ())
+    }
+
+    pub async fn authorize(&self, username: &str, password: &str) -> Result<TokenPair, ()> {
+        let inner = self.inner.lock().await;
+
+        unimplemented!()
     }
 }
 
@@ -62,7 +76,7 @@ impl AuthManagerInner {
 fn load_store_from_file(path: impl AsRef<Path>) -> Result<AuthStore, StoreError> {
     let file = File::open(path.as_ref()).map_err(StoreError::FileReadError)?;
     let reader = BufReader::new(file);
-    serde_json::from_reader(reader).map_err(StoreError::DeserializeError)
+    serde_yaml::from_reader(reader).map_err(StoreError::DeserializeError)
 }
 
 /// Attempt to recover from an error reading the authstore by creating a default version and
@@ -87,7 +101,7 @@ fn create_default_store(
     let store = AuthStore::default_store();
 
     let mut file = File::create(path).map_err(StoreError::FileWriteError)?;
-    serde_json::to_writer(&mut file, &store)?;
+    serde_yaml::to_writer(&mut file, &store)?;
     file.flush().map_err(StoreError::FileWriteError)?;
 
     Ok(store)
