@@ -52,8 +52,8 @@ impl AuthManager {
         .map(|_| ())
     }
 
-    pub async fn authorize(&self, username: &str, password: &str) -> Result<TokenPair, ()> {
-        let inner = self.inner.lock().await;
+    pub async fn authorize(&self, _username: &str, _password: &str) -> Result<TokenPair, ()> {
+        let _inner = self.inner.lock().await;
 
         unimplemented!()
     }
