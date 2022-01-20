@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate anyhow;
 extern crate clap;
 extern crate console_subscriber;

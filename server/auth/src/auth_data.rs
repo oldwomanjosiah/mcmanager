@@ -46,7 +46,7 @@ impl AuthStore {
         self.users.get(&user.0)
     }
 
-    pub fn update<'s, 'u>(&'s mut self, user: &'u User, auth: UserAuthorization) -> bool {
+    pub fn update(&mut self, user: &User, auth: UserAuthorization) -> bool {
         match self.users.get_mut(&user.0) {
             Some(user) => {
                 *user = auth;

@@ -11,7 +11,7 @@ pub struct AuthService {
 impl AuthService {
     async fn refresh(
         &self,
-        request: Request<RefreshRequest>,
+        _request: Request<RefreshRequest>,
     ) -> Result<Response<AuthResponse>, Status> {
         unimplemented!()
     }

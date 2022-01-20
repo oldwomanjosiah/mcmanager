@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Protocol Buffer Data Definitions for mcmanager
 
 pub mod prelude;

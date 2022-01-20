@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Authorization
 
 extern crate serde;
