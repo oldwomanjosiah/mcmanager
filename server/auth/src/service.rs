@@ -11,9 +11,13 @@ pub struct AuthService {
 impl AuthService {
     async fn refresh(
         &self,
-        _request: Request<RefreshRequest>,
+        request: Request<RefreshRequest>,
     ) -> Result<Response<AuthResponse>, Status> {
-        unimplemented!()
+        let request = request.into_inner();
+
+        let authorization = Some(self.auth_manager.refresh(&request.refresh).await.into());
+
+        Ok(AuthResponse { authorization }.into_msg())
     }
 
     async fn authenticate(
@@ -24,16 +28,14 @@ impl AuthService {
         let username = request.username;
         let password = request.password;
 
-        let auth = self
-            .auth_manager
-            .authorize_user(&username, &password)
-            .await
-            .into();
+        let authorization = Some(
+            self.auth_manager
+                .authorize_user(&username, &password)
+                .await
+                .into(),
+        );
 
-        Ok(AuthResponse {
-            authorization: Some(auth),
-        }
-        .into_msg())
+        Ok(AuthResponse { authorization }.into_msg())
     }
 }
 

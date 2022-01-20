@@ -6,6 +6,7 @@ use std::{
     io::{BufReader, Write},
     path::{Path, PathBuf},
     sync::Arc,
+    time::UNIX_EPOCH,
 };
 
 use data::auth::{FailureReason, Tokens};
@@ -81,12 +82,35 @@ impl AuthManager {
             Err(FailureReason::NoUser)
         }
     }
+
+    pub async fn refresh(&self, refresh: &str) -> Result<Tokens, FailureReason> {
+        let mut inner = self.inner.lock().await;
+
+        match inner.refresh_store.get(refresh).cloned() {
+            Some((user, expiry)) => {
+                let now = std::time::SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+
+                if now < expiry {
+                    Ok(inner.generate_tokens(&user))
+                } else {
+                    inner.refresh_store.remove(refresh);
+
+                    Err(FailureReason::NoToken)
+                }
+            }
+            None => Err(FailureReason::NoToken),
+        }
+    }
 }
 
 struct AuthManagerInner {
     config: AuthManagerConfig,
     auth_store: AuthStore,
-    token_store: HashMap<User, Tokens>,
+    token_store: HashMap<User, (String, u64)>,
+    refresh_store: HashMap<String, (User, u64)>,
 }
 
 impl AuthManagerInner {
@@ -97,6 +121,7 @@ impl AuthManagerInner {
             config,
             auth_store,
             token_store: Default::default(),
+            refresh_store: Default::default(),
         })
     }
 
@@ -106,14 +131,18 @@ impl AuthManagerInner {
         let access = pair.auth.encode().unwrap();
         let refresh = pair.refresh.encode().unwrap();
 
+        self.token_store
+            .insert(user.clone(), (access.clone(), pair.auth.expiry));
+
+        self.refresh_store
+            .insert(refresh.clone(), (user.clone(), pair.refresh.expiry));
+
         let token = Tokens {
             access,
             access_expiry: pair.auth.expiry,
             refresh,
             refresh_expiry: pair.refresh.expiry,
         };
-
-        self.token_store.insert(user.clone(), token.clone());
 
         token
     }

@@ -12,7 +12,7 @@ message AuthRequest {
 enum FailureReason {
 	NO_USER = 0; // No user was found with this username
 	INCORRECT_PASS = 1; // The password was not correct
-	TOKEN_EXPIRED = 2; // The Refresh Token Given Has Expired
+	NO_TOKEN = 2; // The Given Token Has Expired or Otherwise does not exist
 }
 
 // Represents a successful authroization request
