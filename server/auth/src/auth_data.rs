@@ -2,6 +2,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+/// Opaque User Handle
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct User(String);
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AuthLevel {
     Admin,
@@ -32,11 +37,50 @@ impl AuthStore {
             )]),
         }
     }
+
+    pub fn get_username(&self, username: &str) -> Option<User> {
+        self.users.get(username).map(|_| User(username.into()))
+    }
+
+    pub fn get<'s, 'u>(&'s self, user: &'u User) -> Option<&'s UserAuthorization> {
+        self.users.get(&user.0)
+    }
+
+    pub fn update<'s, 'u>(&'s mut self, user: &'u User, auth: UserAuthorization) -> bool {
+        match self.users.get_mut(&user.0) {
+            Some(user) => {
+                *user = auth;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Create a new user, if it does not exist
+    ///
+    /// Returns `Err` if the user already exists
+    pub fn create(
+        &mut self,
+        username: String,
+        auth: UserAuthorization,
+    ) -> Result<&UserAuthorization, ()> {
+        match self.users.get(&username) {
+            Some(_) => Err(()),
+            None => {
+                self.users.insert(username.clone(), auth);
+                Ok(&self.users[&username])
+            }
+        }
+    }
 }
 
 pub mod tokens {
+    use std::time::{Duration, UNIX_EPOCH};
+
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
     use thiserror::Error;
+
+    use super::User;
 
     /// Represents a part of a token that can be url encoded and decoded
     ///
@@ -67,10 +111,14 @@ pub mod tokens {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct AuthToken {
         pub username: String,
+        pub expiry: u64,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct RefreshToken {}
+    pub struct RefreshToken {
+        pub username: String,
+        pub expiry: u64,
+    }
 
     impl TokenPart for AuthToken {}
     impl TokenPart for RefreshToken {}
@@ -79,5 +127,31 @@ pub mod tokens {
     pub struct TokenPair {
         pub auth: AuthToken,
         pub refresh: RefreshToken,
+    }
+
+    impl TokenPair {
+        pub fn for_user(user: &User) -> TokenPair {
+            let mins_10 = (std::time::SystemTime::now() + Duration::from_secs(5 * 60))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            let hours_2 = (std::time::SystemTime::now() + Duration::from_secs(120 * 60))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            let auth = AuthToken {
+                username: user.0.clone(),
+                expiry: mins_10,
+            };
+
+            let refresh = RefreshToken {
+                username: user.0.clone(),
+                expiry: hours_2,
+            };
+
+            TokenPair { auth, refresh }
+        }
     }
 }

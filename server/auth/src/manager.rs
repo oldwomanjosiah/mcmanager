@@ -1,17 +1,22 @@
 //! Authorization Management
 
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, Write},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+use data::auth::{FailureReason, Tokens};
 use futures::lock::Mutex;
 use thiserror::Error;
 use tracing::{error, warn};
 
-use crate::auth_data::{tokens::TokenPair, AuthStore};
+use crate::auth_data::{
+    tokens::{TokenPair, TokenPart},
+    AuthStore, User,
+};
 
 /// Errors that can occur while interacting with an AuthStore
 #[derive(Debug, Error)]
@@ -52,23 +57,65 @@ impl AuthManager {
         .map(|_| ())
     }
 
-    pub async fn authorize(&self, _username: &str, _password: &str) -> Result<TokenPair, ()> {
-        let _inner = self.inner.lock().await;
+    pub async fn authorize_user(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> Result<Tokens, FailureReason> {
+        let mut inner = self.inner.lock().await;
 
-        unimplemented!()
+        let user = inner.auth_store.get_username(username);
+
+        if let Some(user) = user {
+            let auth = inner
+                .auth_store
+                .get(&user)
+                .expect("User disappeared between get_username and get");
+
+            if auth.password.eq(password) {
+                Ok(inner.generate_tokens(&user))
+            } else {
+                Err(FailureReason::IncorrectPass)
+            }
+        } else {
+            Err(FailureReason::NoUser)
+        }
     }
 }
 
 struct AuthManagerInner {
     config: AuthManagerConfig,
     auth_store: AuthStore,
+    token_store: HashMap<User, Tokens>,
 }
 
 impl AuthManagerInner {
     fn new(config: AuthManagerConfig) -> Result<Self, StoreError> {
         let auth_store = load_store_from_file(&config.users_file)
             .or_else(|e| create_default_store(&config.users_file, e))?;
-        Ok(Self { config, auth_store })
+        Ok(Self {
+            config,
+            auth_store,
+            token_store: Default::default(),
+        })
+    }
+
+    fn generate_tokens(&mut self, user: &User) -> Tokens {
+        let pair = TokenPair::for_user(user);
+
+        let access = pair.auth.encode().unwrap();
+        let refresh = pair.refresh.encode().unwrap();
+
+        let token = Tokens {
+            access,
+            access_expiry: pair.auth.expiry,
+            refresh,
+            refresh_expiry: pair.refresh.expiry,
+        };
+
+        self.token_store.insert(user.clone(), token.clone());
+
+        token
     }
 }
 
