@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [ "data" ]
+members = [ "data", "async-inotify" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -32,7 +32,7 @@ prost = { version = "0.9" }
 # information
 sysinfo = "0.22"
 
-data = { version = "0.1", path = "data" }
+data = { path = "data" }
 
 [build-dependencies]
 tonic-build = { version = "0.6", features = [ "prost", "compression" ] }

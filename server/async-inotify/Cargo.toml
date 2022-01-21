@@ -1,0 +1,22 @@
+[package]
+name = "async-inotify"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+inotify-sys = "0.1.5"
+futures = "0.3" # This may not be necessary
+mio = { version = "0.8", features = [ "os-poll", "os-ext" ] }
+
+[dependencies.tokio]
+version = "1"
+default-features = false
+features = [ "sync" ]
+
+[dev-dependencies.tokio]
+version = "1"
+default-features = true
+features = [ "full" ]
+
