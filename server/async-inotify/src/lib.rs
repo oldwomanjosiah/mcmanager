@@ -177,7 +177,7 @@ mod tests {
 
         let fut = handle.request(path).await;
 
-        //sleep(Duration::from_micros(10)).await;
+        sleep(Duration::from_micros(10)).await;
 
         file.update_contents();
 
