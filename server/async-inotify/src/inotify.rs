@@ -15,11 +15,13 @@ struct WatchState {
 }
 
 impl Inotify {
-    pub fn new() -> Self {
+    pub fn new(blocking: bool) -> Self {
+        let flags = if blocking { 0 } else { ffi::IN_NONBLOCK };
+
         // SAFETY
         //
         // See Also: https://man7.org/linux/man-pages/man7/inotify.7.html
-        let fd = unsafe { ffi::inotify_init1(ffi::IN_NONBLOCK) };
+        let fd = unsafe { ffi::inotify_init1(flags) };
         Self {
             fd,
             watchers: Default::default(),
@@ -60,7 +62,7 @@ impl Inotify {
             let rem = if let Some((path, state)) =
                 self.watchers.iter_mut().find(|(_, v)| v.wd == event.wd)
             {
-                if state.watchers.len() != 0 {
+                if !state.watchers.is_empty() {
                     let mut watchers = Vec::new();
                     std::mem::swap(&mut watchers, &mut state.watchers);
 

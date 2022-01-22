@@ -81,7 +81,7 @@ impl State {
         let poll = Poll::new().unwrap();
         let waker = Arc::new(Waker::new(poll.registry(), WAKE_TOKEN).unwrap());
 
-        let mut inotify = Inotify::new();
+        let mut inotify = Inotify::new(false);
 
         inotify
             .register(poll.registry(), INOTIFY_TOKEN, Interest::READABLE)
