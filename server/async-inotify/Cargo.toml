@@ -9,7 +9,7 @@ edition = "2021"
 inotify-sys = "0.1.5"
 futures = "0.3" # This may not be necessary
 mio = { version = "0.8", features = [ "os-poll", "os-ext" ] }
-# libc = "0.2"
+libc = "0.2"
 
 [dependencies.tokio]
 version = "1"

@@ -38,6 +38,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "inotify-sys",
+ "libc",
  "mio 0.8.0",
  "tokio",
 ]

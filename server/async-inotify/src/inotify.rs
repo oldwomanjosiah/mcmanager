@@ -2,6 +2,8 @@ use inotify_sys as ffi;
 use std::{collections::HashMap, ffi::CString, os::raw::c_int, path::PathBuf};
 use tokio::sync::oneshot::Sender;
 
+use crate::flags::EventMask;
+
 pub struct Inotify {
     fd: c_int,
     watchers: HashMap<PathBuf, WatchState>,
@@ -9,7 +11,7 @@ pub struct Inotify {
 
 struct WatchState {
     wd: c_int,
-    watchers: Vec<Sender<String>>,
+    watchers: Vec<Sender<EventMask>>,
 }
 
 impl Inotify {
@@ -24,7 +26,7 @@ impl Inotify {
         }
     }
 
-    pub fn add_watcher(&mut self, path: PathBuf, sender: Sender<String>) {
+    pub fn add_watcher(&mut self, path: PathBuf, sender: Sender<EventMask>) {
         match self.watchers.get_mut(&path) {
             Some(watch) => {
                 eprintln!("Adding to Existing Watch");
@@ -68,9 +70,11 @@ impl Inotify {
 
                         let ret = format!("{name}: {event:#?}");
 
-                        eprintln!("{ret}");
+                        let mask = EventMask(event.mask & EventMask::Any.0);
 
-                        assert!(watcher.send(ret).is_ok());
+                        eprintln!("{ret}: Mask: {:4X}", mask.0);
+
+                        assert!(watcher.send(mask).is_ok());
                     }
 
                     None

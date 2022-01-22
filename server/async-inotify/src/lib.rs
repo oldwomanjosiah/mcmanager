@@ -5,9 +5,13 @@ extern crate mio;
 extern crate tokio;
 
 use std::path::PathBuf;
+use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 
+use flags::EventMask;
+use futures::pin_mut;
 use futures::Future;
+use futures::FutureExt;
 use inotify::Inotify;
 use mio::event::Source;
 use mio::Events;
@@ -15,9 +19,10 @@ use mio::Interest;
 use mio::Poll;
 use mio::Token;
 use mio::Waker;
-use tokio::sync::mpsc::error::TryRecvError;
-use tokio::sync::mpsc::Receiver as MpscReceiver;
-use tokio::sync::mpsc::Sender as MpscSender;
+use std::sync::mpsc::Receiver as MpscReceiver;
+use std::sync::mpsc::Sender as MpscSender;
+use std::sync::mpsc::TryRecvError;
+use tokio::sync::oneshot::error::RecvError;
 use tokio::sync::oneshot::Sender as OnceSender;
 
 pub mod flags;
@@ -28,29 +33,41 @@ const INOTIFY_TOKEN: Token = Token(1);
 
 #[derive(Clone, Debug)]
 pub struct Handle {
-    sender: MpscSender<WatchRequest>,
+    sender: SyncSender<WatchRequest>,
     waker: Arc<Waker>,
 }
 
-impl Handle {
-    async fn request(&self, file: PathBuf) -> impl Future<Output = String> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
+pub struct OnceFuture {
+    channel: tokio::sync::oneshot::Receiver<EventMask>,
+}
 
-        self.sender
-            .send(WatchRequest { file, resp: tx })
-            .await
-            .unwrap();
+impl Future for OnceFuture {
+    type Output = Result<EventMask, RecvError>;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        self.channel.poll_unpin(cx)
+    }
+}
+
+impl Handle {
+    fn request(&self, file: PathBuf) -> OnceFuture {
+        let (resp, channel) = tokio::sync::oneshot::channel();
+
+        self.sender.send(WatchRequest { file, resp }).unwrap();
 
         self.waker.wake().unwrap();
 
-        async { rx.await.unwrap() }
+        OnceFuture { channel }
     }
 }
 
 #[derive(Debug)]
 pub struct WatchRequest {
     file: PathBuf,
-    resp: OnceSender<String>,
+    resp: OnceSender<EventMask>,
 }
 
 struct State {
@@ -120,9 +137,7 @@ impl State {
 }
 
 pub fn spawn() -> Handle {
-    use tokio::sync::mpsc::*;
-
-    let (sender, requests) = channel(16);
+    let (sender, requests) = std::sync::mpsc::sync_channel(16);
 
     let (state, waker) = State::new(requests);
 
@@ -135,9 +150,9 @@ pub fn spawn() -> Handle {
 mod tests {
     use std::io::Write;
     use std::time::Duration;
-    use tokio::fs::File;
-    use tokio::io::AsyncWriteExt;
     use tokio::time::sleep;
+
+    use crate::flags::EventFlag;
 
     use super::*;
 
@@ -177,14 +192,16 @@ mod tests {
 
         let file = CreateFile::create(path.clone());
 
-        let fut = handle.request(path).await;
+        let fut = handle.request(path);
 
         sleep(Duration::from_micros(10)).await;
 
         file.update_contents();
 
         select! {
-            _ = fut => {},
+            mask = fut => {
+                assert_eq!(mask, Ok(EventFlag::Write.into()));
+            },
             _ = sleep(Duration::from_secs(2)) => {
                 panic!("Inotify future timeout");
             },

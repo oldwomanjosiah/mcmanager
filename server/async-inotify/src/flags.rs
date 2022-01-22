@@ -64,15 +64,15 @@ pub enum InterestFlag {
 
 /// Represents a masked selection of events which can be added to a file watch
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct EventMask(u32);
+pub struct EventMask(pub(crate) u32);
 
 /// Selection of [`InterestFlag`]s which modify the types of events responded to by this watch
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Interests(u32);
+pub struct Interests(pub(crate) u32);
 
 /// A Full Filter for a watch request
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct EventFilter(u32);
+pub struct EventFilter(pub(crate) u32);
 
 impl From<EventMask> for EventFilter {
     fn from(mask: EventMask) -> Self {
@@ -83,13 +83,13 @@ impl From<EventMask> for EventFilter {
 #[allow(non_upper_case_globals)]
 impl EventMask {
     #[doc(alias = "MOVE")]
-    const Move: EventMask = EventMask(ffi::IN_MOVE);
+    pub const Move: EventMask = EventMask(ffi::IN_MOVE);
 
     #[doc(alias = "CLOSE")]
-    const Close: EventMask = EventMask(ffi::IN_CLOSE);
+    pub const Close: EventMask = EventMask(ffi::IN_CLOSE);
 
     #[doc(alias = "ALL_EVENTS")]
-    const Any: EventMask = EventMask(ffi::IN_ALL_EVENTS);
+    pub const Any: EventMask = EventMask(ffi::IN_ALL_EVENTS);
 
     pub fn filter(self, filter: InterestFlag) -> EventFilter {
         EventFilter(self.0 | filter as u32)
