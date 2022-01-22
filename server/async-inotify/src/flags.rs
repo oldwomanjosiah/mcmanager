@@ -45,12 +45,21 @@ pub enum EventFlag {
 #[repr(u32)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum InterestFlag {
+    #[doc(alias = "ONLYDIR")]
     DirOnly = ffi::IN_ONLYDIR,
+
+    #[doc(alias = "DONT_FOLLOW")]
     NoFollow = ffi::IN_DONT_FOLLOW,
+
+    #[doc(alias = "EXCL_UNLINK")]
     NoUnlink = ffi::IN_EXCL_UNLINK,
-    UnifyFilter = ffi::IN_MASK_ADD,
-    // TODO(josiah) this should be handled by the watch request api instead?
+    // TODO(josiah) this should not be allowed, since we manage watch states internaly
+    // #[doc(alias = "MASK_ADD")]
+    // UnifyFilter = ffi::IN_MASK_ADD,
+    // TODO(josiah) this should be handled by the watch request api instead
     // Once = ffi::IN_ONESHOT,
+    // TODO(josiah) this should not be allowed, since we manage watch states internaly
+    // Replace = ffi::IN_MASK_CREATE,
 }
 
 /// Represents a masked selection of events which can be added to a file watch
@@ -86,7 +95,7 @@ impl EventMask {
         EventFilter(self.0 | filter as u32)
     }
 
-    pub fn with_intersts(self, filter: Interests) -> EventFilter {
+    pub fn with_interests(self, filter: Interests) -> EventFilter {
         EventFilter(self.0 | filter.0)
     }
 }
@@ -97,18 +106,7 @@ impl EventFilter {
     }
 }
 
-#[allow(non_upper_case_globals)]
-impl EventFlag {
-    #[doc(alias = "MOVE")]
-    const Move: EventMask = EventMask::Move;
-
-    #[doc(alias = "CLOSE")]
-    const Close: EventMask = EventMask::Close;
-
-    #[doc(alias = "ALL_EVENTS")]
-    const Any: EventMask = EventMask::Any;
-}
-
+/// Helper impls for converting bitflag types from their enum form to their final form
 macro_rules! bitconvert {
     ($from:ident to $to:ident as $inner:ty) => {
         impl From<$from> for $to {
