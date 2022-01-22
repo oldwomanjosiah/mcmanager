@@ -66,7 +66,11 @@ impl Inotify {
                         // We do not care if the receiver was dropped
                         let name = path.display().to_string();
 
-                        assert!(watcher.send(format!("{name}: {event:#?}")).is_ok());
+                        let ret = format!("{name}: {event:#?}");
+
+                        eprintln!("{ret}");
+
+                        assert!(watcher.send(ret).is_ok());
                     }
 
                     None

@@ -20,7 +20,8 @@ use tokio::sync::mpsc::Receiver as MpscReceiver;
 use tokio::sync::mpsc::Sender as MpscSender;
 use tokio::sync::oneshot::Sender as OnceSender;
 
-mod inotify;
+pub mod flags;
+pub mod inotify;
 
 const WAKE_TOKEN: Token = Token(0);
 const INOTIFY_TOKEN: Token = Token(1);
@@ -173,6 +174,7 @@ mod tests {
         let handle = spawn();
 
         let path = PathBuf::from("Hello.txt");
+
         let file = CreateFile::create(path.clone());
 
         let fut = handle.request(path).await;
