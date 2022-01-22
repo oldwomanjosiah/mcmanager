@@ -9,7 +9,6 @@ use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 
 use flags::EventMask;
-use futures::pin_mut;
 use futures::Future;
 use futures::FutureExt;
 use inotify::Inotify;
@@ -20,7 +19,6 @@ use mio::Poll;
 use mio::Token;
 use mio::Waker;
 use std::sync::mpsc::Receiver as MpscReceiver;
-use std::sync::mpsc::Sender as MpscSender;
 use std::sync::mpsc::TryRecvError;
 use tokio::sync::oneshot::error::RecvError;
 use tokio::sync::oneshot::Sender as OnceSender;
@@ -53,7 +51,7 @@ impl Future for OnceFuture {
 }
 
 impl Handle {
-    fn request(&self, file: PathBuf) -> OnceFuture {
+    pub fn request(&self, file: PathBuf) -> OnceFuture {
         let (resp, channel) = tokio::sync::oneshot::channel();
 
         self.sender.send(WatchRequest { file, resp }).unwrap();
