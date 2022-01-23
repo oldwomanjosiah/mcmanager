@@ -121,22 +121,27 @@ impl Handle {
 }
 
 mod sealed {
-    pub trait WatchType {
-        const DEFAULT_BUFFER: usize;
-    }
+    pub trait Sealed {}
+}
+
+pub trait WatchType: sealed::Sealed {
+    const DEFAULT_BUFFER: usize;
 }
 
 pub enum FileEvents {}
 pub enum DirectoryEvents {}
 
-impl sealed::WatchType for FileEvents {
+impl sealed::Sealed for FileEvents {}
+impl sealed::Sealed for DirectoryEvents {}
+
+impl WatchType for FileEvents {
     const DEFAULT_BUFFER: usize = 16;
 }
-impl sealed::WatchType for DirectoryEvents {
+impl WatchType for DirectoryEvents {
     const DEFAULT_BUFFER: usize = 32;
 }
 
-pub struct WatchRequest<'handle, T: sealed::WatchType> {
+pub struct WatchRequest<'handle, T: WatchType> {
     handle: &'handle mut Handle,
     path: PathBuf,
     buffer: usize,
@@ -144,31 +149,31 @@ pub struct WatchRequest<'handle, T: sealed::WatchType> {
 }
 
 impl<'handle> WatchRequest<'handle, FileEvents> {
-    fn next(self) -> FileWatchFuture {
+    pub fn next(self) -> FileWatchFuture {
         todo!()
     }
 
-    fn buffer(mut self, size: usize) -> Self {
+    pub fn buffer(mut self, size: usize) -> Self {
         self.buffer = size;
         self
     }
 
-    fn watch(self) -> FileWatchStream {
+    pub fn watch(self) -> FileWatchStream {
         todo!()
     }
 }
 
 impl<'handle> WatchRequest<'handle, DirectoryEvents> {
-    fn next(self) -> DirectoryWatchFuture {
+    pub fn next(self) -> DirectoryWatchFuture {
         todo!()
     }
 
-    fn buffer(mut self, size: usize) -> Self {
+    pub fn buffer(mut self, size: usize) -> Self {
         self.buffer = size;
         self
     }
 
-    fn watch(self) -> DirectoryWatchStream {
+    pub fn watch(self) -> DirectoryWatchStream {
         todo!()
     }
 }
