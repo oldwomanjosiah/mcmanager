@@ -10,14 +10,17 @@ inotify-sys = "0.1.5"
 futures = "0.3" # This may not be necessary
 mio = { version = "0.8", features = [ "os-poll", "os-ext" ] }
 libc = "0.2"
+nix = "0.23"
 
 [dependencies.tokio]
 version = "1"
 default-features = false
 features = [ "sync" ]
 
+[dev-dependencies]
+tempdir = "0.3"
+
 [dev-dependencies.tokio]
 version = "1"
 default-features = true
 features = [ "full" ]
-

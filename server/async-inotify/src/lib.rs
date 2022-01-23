@@ -96,6 +96,8 @@ impl State {
     }
 
     fn run(mut self) {
+        let mut events = Events::with_capacity(2);
+
         'main: loop {
             loop {
                 eprintln!("Checking requests");
@@ -105,8 +107,6 @@ impl State {
                     Err(TryRecvError::Disconnected) => break 'main,
                 }
             }
-
-            let mut events = Events::with_capacity(2);
 
             eprintln!("Waiting for events to arrive");
 
