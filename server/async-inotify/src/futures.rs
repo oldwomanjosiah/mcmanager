@@ -54,12 +54,15 @@ impl Stream for FileWatchStream {
 }
 
 impl Stream for DirectoryWatchStream {
+    // TODO(josiah) update this so that the item type can be WatchResult<WatchEvent>
     type Item = WatchEvent;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
+        // This should be done by polling for new items manually, instead of using the stream
+        // wrapper seen here.
         Pin::new(&mut self.0).poll_next(cx)
     }
 }
