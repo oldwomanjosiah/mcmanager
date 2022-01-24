@@ -10,10 +10,11 @@ use tokio::{
     sync::{mpsc::Sender as MpscSend, oneshot::Sender as OnceSend},
     task::JoinHandle,
 };
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{
-    task::WatchRequestInner, DirectoryWatchFuture, DirectoryWatchStream, FileWatchFuture,
-    FileWatchStream,
+    futures::{DirectoryWatchFuture, DirectoryWatchStream, FileWatchFuture, FileWatchStream},
+    task::WatchRequestInner,
 };
 
 #[derive(Debug, Clone)]
@@ -98,7 +99,7 @@ impl Handle {
             handle: self,
             path,
             buffer,
-            flags: AddWatchFlags::empty(),
+            flags: AddWatchFlags::IN_MODIFY,
             _type: Default::default(),
         })
     }
@@ -120,7 +121,7 @@ impl Handle {
             handle: self,
             path,
             buffer,
-            flags: AddWatchFlags::empty(),
+            flags: AddWatchFlags::IN_MODIFY,
             _type: Default::default(),
         })
     }
@@ -156,8 +157,20 @@ pub struct WatchRequest<'handle, T: WatchType> {
 }
 
 impl<'handle> WatchRequest<'handle, FileEvents> {
-    pub fn next(self) -> FileWatchFuture {
-        todo!()
+    pub async fn next(self) -> FileWatchFuture {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.handle
+            .request_tx
+            .send(WatchRequestInner::Once {
+                flags: self.flags,
+                path: self.path,
+                tx,
+            })
+            .await
+            .unwrap();
+
+        FileWatchFuture(rx)
     }
 
     pub fn buffer(mut self, size: usize) -> Self {
@@ -165,14 +178,38 @@ impl<'handle> WatchRequest<'handle, FileEvents> {
         self
     }
 
-    pub fn watch(self) -> FileWatchStream {
-        todo!()
+    pub async fn watch(self) -> FileWatchStream {
+        let (tx, rx) = tokio::sync::mpsc::channel(self.buffer);
+
+        self.handle
+            .request_tx
+            .send(WatchRequestInner::Stream {
+                flags: self.flags,
+                path: self.path,
+                tx,
+            })
+            .await
+            .unwrap();
+
+        FileWatchStream(ReceiverStream::from(rx))
     }
 }
 
 impl<'handle> WatchRequest<'handle, DirectoryEvents> {
-    pub fn next(self) -> DirectoryWatchFuture {
-        todo!()
+    pub async fn next(self) -> DirectoryWatchFuture {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.handle
+            .request_tx
+            .send(WatchRequestInner::Once {
+                flags: self.flags,
+                path: self.path,
+                tx,
+            })
+            .await
+            .unwrap();
+
+        DirectoryWatchFuture(rx)
     }
 
     pub fn buffer(mut self, size: usize) -> Self {
@@ -180,7 +217,19 @@ impl<'handle> WatchRequest<'handle, DirectoryEvents> {
         self
     }
 
-    pub fn watch(self) -> DirectoryWatchStream {
-        todo!()
+    pub async fn watch(self) -> DirectoryWatchStream {
+        let (tx, rx) = tokio::sync::mpsc::channel(self.buffer);
+
+        self.handle
+            .request_tx
+            .send(WatchRequestInner::Stream {
+                flags: self.flags,
+                path: self.path,
+                tx,
+            })
+            .await
+            .unwrap();
+
+        DirectoryWatchStream(ReceiverStream::from(rx))
     }
 }

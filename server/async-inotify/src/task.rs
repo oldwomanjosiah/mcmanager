@@ -56,7 +56,7 @@ pub enum InitError {
 }
 
 impl WatcherState {
-    pub fn new(
+    pub(crate) fn new(
         request_rx: MpscRecv<WatchRequestInner>,
         shutdown: OnceRecv<()>,
     ) -> Result<Self, InitError> {

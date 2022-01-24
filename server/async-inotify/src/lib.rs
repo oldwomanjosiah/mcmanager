@@ -15,7 +15,7 @@ pub mod handle;
 mod task;
 
 #[derive(Debug, Clone)]
-struct WatchEvent {
+pub struct WatchEvent {
     pub flags: AddWatchFlags,
     pub path: Option<PathBuf>,
 }
@@ -24,16 +24,6 @@ struct WatchEvent {
 struct Watcher {
     handle_id: usize,
     watch_id: usize,
-}
-
-struct OnceWatcher {
-    flags: AddWatchFlags,
-    tx: OnceSend<AddWatchFlags>,
-}
-
-struct StreamWatcher {
-    flags: AddWatchFlags,
-    tx: MpscSend<AddWatchFlags>,
 }
 
 // TODO(josiah) convert this to a builder style to allow for request buffer configurations, as well
