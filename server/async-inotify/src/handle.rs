@@ -78,7 +78,10 @@ pub enum RequestError {
 }
 
 #[derive(Debug, Error)]
-pub enum WatchError {}
+pub enum WatchError {
+    #[error("The watcher task was shutdown while before an event was received")]
+    WatcherShutdown,
+}
 
 impl Handle {
     pub fn file(&mut self, path: PathBuf) -> Result<WatchRequest<'_, FileEvents>, RequestError> {

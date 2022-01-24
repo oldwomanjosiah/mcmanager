@@ -19,7 +19,7 @@ use tokio::{
 use crate::WatchEvent;
 
 #[derive(Debug)]
-pub enum WatchRequestInner {
+pub(crate) enum WatchRequestInner {
     /// Create a new once watch
     Once {
         path: PathBuf,
@@ -85,7 +85,7 @@ impl WatcherState {
 
                 request = self.request_rx.recv() => {
                     match request {
-                        Some(event) => { todo!() },
+                        Some(event) => self.watches.handle_request(self.instance.get_ref(), event).await.unwrap(),
 
                         // All senders have been dropped, so there will be no more watches
                         // requested
@@ -138,6 +138,10 @@ impl Watches {
             let path = event.name.map(Into::into);
 
             if let Some(watch) = self.watches.get_mut(&event.wd) {
+                eprintln!(
+                    "Got event for path: {} with flags {flags:4X}",
+                    watch.path.display()
+                );
                 let mut replace = Vec::with_capacity(watch.once.len() / 2);
 
                 for once in watch.once.drain(..) {

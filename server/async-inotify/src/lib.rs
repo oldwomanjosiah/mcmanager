@@ -1,4 +1,3 @@
-extern crate futures;
 #[cfg_attr(test, macro_use)]
 extern crate tokio;
 
@@ -11,19 +10,15 @@ use tokio::sync::{
     mpsc::Sender as MpscSend, oneshot::Receiver as OnceRecv, oneshot::Sender as OnceSend,
 };
 
+pub mod futures;
 pub mod handle;
 mod task;
 
 #[derive(Debug, Clone)]
 struct WatchEvent {
-    flags: AddWatchFlags,
-    path: Option<PathBuf>,
+    pub flags: AddWatchFlags,
+    pub path: Option<PathBuf>,
 }
-
-pub struct FileWatchFuture(OnceRecv<WatchEvent>);
-pub struct FileWatchStream(OnceRecv<WatchEvent>);
-pub struct DirectoryWatchFuture(MpscSend<WatchEvent>);
-pub struct DirectoryWatchStream(MpscSend<WatchEvent>);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 struct Watcher {
