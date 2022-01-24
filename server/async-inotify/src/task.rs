@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::OsString, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 use nix::{
     errno::Errno,
@@ -6,9 +6,8 @@ use nix::{
 };
 use thiserror::Error;
 use tokio::{
-    io::unix::{AsyncFd, AsyncFdReadyGuard, AsyncFdReadyMutGuard},
+    io::unix::{AsyncFd, AsyncFdReadyGuard},
     select,
-    sync::mpsc::error::TrySendError,
     sync::mpsc::Receiver as MpscRecv,
     sync::mpsc::Sender as MpscSend,
     sync::oneshot::Receiver as OnceRecv,
@@ -35,6 +34,7 @@ pub(crate) enum WatchRequestInner {
     },
 
     /// A watcher was dropped, so we should scan for it and remove it
+    #[allow(unused)]
     Drop,
 }
 

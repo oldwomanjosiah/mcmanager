@@ -6,9 +6,7 @@ use std::path::PathBuf;
 use handle::{Handle, OwnedHandle};
 use nix::sys::inotify::AddWatchFlags;
 use task::InitError;
-use tokio::sync::{
-    mpsc::Sender as MpscSend, oneshot::Receiver as OnceRecv, oneshot::Sender as OnceSend,
-};
+
 
 pub mod futures;
 pub mod handle;
