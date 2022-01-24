@@ -1,3 +1,4 @@
+use nix::sys::inotify::AddWatchFlags;
 use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -88,12 +89,13 @@ impl Handle {
             return Err(RequestError::IncorrectType(path));
         }
 
-        let buffer = <FileEvents as sealed::WatchType>::DEFAULT_BUFFER;
+        let buffer = FileEvents::DEFAULT_BUFFER;
 
         Ok(WatchRequest {
             handle: self,
             path,
             buffer,
+            flags: AddWatchFlags::empty(),
             _type: Default::default(),
         })
     }
@@ -109,12 +111,13 @@ impl Handle {
             return Err(RequestError::IncorrectType(path));
         }
 
-        let buffer = <DirectoryEvents as sealed::WatchType>::DEFAULT_BUFFER;
+        let buffer = DirectoryEvents::DEFAULT_BUFFER;
 
         Ok(WatchRequest {
             handle: self,
             path,
             buffer,
+            flags: AddWatchFlags::empty(),
             _type: Default::default(),
         })
     }
@@ -145,6 +148,7 @@ pub struct WatchRequest<'handle, T: WatchType> {
     handle: &'handle mut Handle,
     path: PathBuf,
     buffer: usize,
+    flags: AddWatchFlags,
     _type: PhantomData<T>,
 }
 

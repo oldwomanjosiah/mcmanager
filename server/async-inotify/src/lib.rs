@@ -2,19 +2,28 @@ extern crate futures;
 #[cfg_attr(test, macro_use)]
 extern crate tokio;
 
+use std::path::PathBuf;
+
 use handle::{Handle, OwnedHandle};
 use nix::sys::inotify::AddWatchFlags;
 use task::InitError;
-use tokio::sync::{mpsc::Sender as MpscSend, oneshot::Sender as OnceSend};
+use tokio::sync::{
+    mpsc::Sender as MpscSend, oneshot::Receiver as OnceRecv, oneshot::Sender as OnceSend,
+};
 
 pub mod handle;
 mod task;
 
-pub struct FileWatchFuture {}
-pub struct FileWatchStream {}
+#[derive(Debug, Clone)]
+struct WatchEvent {
+    flags: AddWatchFlags,
+    path: Option<PathBuf>,
+}
 
-pub struct DirectoryWatchFuture {}
-pub struct DirectoryWatchStream {}
+pub struct FileWatchFuture(OnceRecv<WatchEvent>);
+pub struct FileWatchStream(OnceRecv<WatchEvent>);
+pub struct DirectoryWatchFuture(MpscSend<WatchEvent>);
+pub struct DirectoryWatchStream(MpscSend<WatchEvent>);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 struct Watcher {
