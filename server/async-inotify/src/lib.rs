@@ -1,7 +1,7 @@
-#[cfg_attr(test, macro_use)]
+extern crate nix;
+extern crate thiserror;
 extern crate tokio;
-
-use std::path::PathBuf;
+extern crate tokio_stream;
 
 use handle::{Handle, OwnedHandle};
 use nix::sys::inotify::AddWatchFlags;
@@ -41,15 +41,11 @@ pub fn new() -> Result<OwnedHandle, InitError> {
 
 #[cfg(test)]
 mod test {
-    use std::{error::Error, future::Future, io::Write, path::PathBuf, time::Duration};
+    use std::{future::Future, io::Write, path::PathBuf, time::Duration};
 
-    use anyhow::Result;
     use nix::sys::inotify::AddWatchFlags;
     use tempdir::TempDir;
-    use tokio::{
-        test,
-        time::{error::Elapsed, Timeout},
-    };
+    use tokio::{test, time::Timeout};
     use tokio_stream::StreamExt;
 
     fn setup_testdir() -> TempDir {
@@ -200,7 +196,7 @@ mod test {
         while let Ok(Some(item)) = timeout(stream.next()).await {
             eprintln!("{item:#?}");
 
-            match item.path.as_ref().map(String::as_str) {
+            match item.path.as_deref() {
                 Some("test1.txt") => got_1 = true,
                 Some("test2.txt") => got_2 = true,
                 Some(f) => panic!("Did not expect event for {f}"),
