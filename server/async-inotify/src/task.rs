@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, ffi::OsString, path::PathBuf};
 
 use nix::{
     errno::Errno,
@@ -70,10 +70,16 @@ impl WatcherState {
         })
     }
 
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
     pub fn launch(self) -> JoinHandle<()> {
         tokio::task::Builder::new()
             .name("Inotify Watcher")
             .spawn(self.run())
+    }
+
+    #[cfg(not(all(tokio_unstable, feature = "tracing")))]
+    pub fn launch(self) -> JoinHandle<()> {
+        tokio::spawn(self.run())
     }
 
     async fn run(mut self) {
@@ -131,11 +137,17 @@ impl Watches {
         &mut self,
         mut guard: AsyncFdReadyGuard<'_, Inotify>,
     ) -> Result<(), Errno> {
+        eprintln!("Processing Events from Watches");
         let events = guard.get_inner().read_events()?;
 
         for event in events.into_iter() {
+            eprintln!("Got Event");
             let flags = event.mask;
-            let path = event.name.map(Into::into);
+            let path = event
+                .name
+                .map(OsString::into_string)
+                .map(Result::ok)
+                .flatten();
 
             if let Some(watch) = self.watches.get_mut(&event.wd) {
                 eprintln!(
@@ -179,6 +191,7 @@ impl Watches {
         match request {
             WatchRequestInner::Drop => self.clean_watches().await,
             WatchRequestInner::Once { path, flags, tx } => {
+                eprintln!("Processing Once Request");
                 if let Some(wd) = self.paths.get(&path) {
                     let state = self.watches.get_mut(wd).unwrap();
                     state.once.push(OnceWatcher { flags, sender: tx });
@@ -195,6 +208,7 @@ impl Watches {
                 }
             }
             WatchRequestInner::Stream { path, flags, tx } => {
+                eprintln!("Processing Stream Request");
                 if let Some(wd) = self.paths.get(&path) {
                     let state = self.watches.get_mut(wd).unwrap();
                     state.stream.push(StreamWatcher { flags, sender: tx });
@@ -216,6 +230,7 @@ impl Watches {
     }
 
     async fn clean_watches(&mut self) {
+        eprintln!("Cleaning Watches");
         todo!("Find and remove unused watches");
     }
 }

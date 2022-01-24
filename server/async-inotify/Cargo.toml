@@ -13,12 +13,13 @@ tokio-stream = "0.1"
 [dependencies.tokio]
 version = "1"
 default-features = false
-features = [ "sync" ]
+features = [ "sync", "rt", "net", "macros" ]
 
 [dev-dependencies]
 tempdir = "0.3"
+anyhow = "1.0"
 
 [dev-dependencies.tokio]
 version = "1"
 default-features = true
-features = [ "full" ]
+features = [ "full", "test-util" ]

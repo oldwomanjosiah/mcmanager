@@ -157,20 +157,19 @@ pub struct WatchRequest<'handle, T: WatchType> {
 }
 
 impl<'handle> WatchRequest<'handle, FileEvents> {
-    pub async fn next(self) -> FileWatchFuture {
+    pub fn next(self) -> Result<FileWatchFuture, WatchError> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.handle
             .request_tx
-            .send(WatchRequestInner::Once {
+            .try_send(WatchRequestInner::Once {
                 flags: self.flags,
                 path: self.path,
                 tx,
             })
-            .await
-            .unwrap();
+            .map_err(|_| WatchError::WatcherShutdown)?;
 
-        FileWatchFuture(rx)
+        Ok(FileWatchFuture(rx))
     }
 
     pub fn buffer(mut self, size: usize) -> Self {
@@ -178,38 +177,36 @@ impl<'handle> WatchRequest<'handle, FileEvents> {
         self
     }
 
-    pub async fn watch(self) -> FileWatchStream {
+    pub fn watch(self) -> Result<FileWatchStream, WatchError> {
         let (tx, rx) = tokio::sync::mpsc::channel(self.buffer);
 
         self.handle
             .request_tx
-            .send(WatchRequestInner::Stream {
+            .try_send(WatchRequestInner::Stream {
                 flags: self.flags,
                 path: self.path,
                 tx,
             })
-            .await
-            .unwrap();
+            .map_err(|_| WatchError::WatcherShutdown)?;
 
-        FileWatchStream(ReceiverStream::from(rx))
+        Ok(FileWatchStream(ReceiverStream::from(rx)))
     }
 }
 
 impl<'handle> WatchRequest<'handle, DirectoryEvents> {
-    pub async fn next(self) -> DirectoryWatchFuture {
+    pub fn next(self) -> Result<DirectoryWatchFuture, WatchError> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.handle
             .request_tx
-            .send(WatchRequestInner::Once {
+            .try_send(WatchRequestInner::Once {
                 flags: self.flags,
                 path: self.path,
                 tx,
             })
-            .await
-            .unwrap();
+            .map_err(|_| WatchError::WatcherShutdown)?;
 
-        DirectoryWatchFuture(rx)
+        Ok(DirectoryWatchFuture(rx))
     }
 
     pub fn buffer(mut self, size: usize) -> Self {
@@ -217,19 +214,18 @@ impl<'handle> WatchRequest<'handle, DirectoryEvents> {
         self
     }
 
-    pub async fn watch(self) -> DirectoryWatchStream {
+    pub fn watch(self) -> Result<DirectoryWatchStream, WatchError> {
         let (tx, rx) = tokio::sync::mpsc::channel(self.buffer);
 
         self.handle
             .request_tx
-            .send(WatchRequestInner::Stream {
+            .try_send(WatchRequestInner::Stream {
                 flags: self.flags,
                 path: self.path,
                 tx,
             })
-            .await
-            .unwrap();
+            .map_err(|_| WatchError::WatcherShutdown)?;
 
-        DirectoryWatchStream(ReceiverStream::from(rx))
+        Ok(DirectoryWatchStream(ReceiverStream::from(rx)))
     }
 }
