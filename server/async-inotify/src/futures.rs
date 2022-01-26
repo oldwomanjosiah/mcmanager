@@ -1,17 +1,12 @@
 use std::{
     fmt::{Display, Formatter},
     future::Future,
-    panic::panic_any,
     pin::Pin,
 };
 
 use nix::sys::inotify::AddWatchFlags;
 use tokio::sync::oneshot::Receiver as OnceRecv;
 use tokio_stream::{wrappers::ReceiverStream, Stream};
-
-use crate::handle::WatchError;
-
-type WatchResult<T> = Result<T, WatchError>;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FileWatchEvent {
