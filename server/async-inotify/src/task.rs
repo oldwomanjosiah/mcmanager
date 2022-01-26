@@ -1,5 +1,6 @@
-use std::{collections::HashMap, ffi::OsString, path::PathBuf};
+use std::{collections::HashMap, ffi::OsString, path::PathBuf, time::Duration};
 
+use futures::{future::Either, Future};
 use nix::{
     errno::Errno,
     sys::inotify::{AddWatchFlags, InitFlags, Inotify, WatchDescriptor},
@@ -9,28 +10,22 @@ use tokio::{
     io::unix::{AsyncFd, AsyncFdReadyGuard},
     select,
     sync::mpsc::Receiver as MpscRecv,
-    sync::mpsc::Sender as MpscSend,
+    sync::mpsc::{error::TrySendError, Sender as MpscSend},
     sync::oneshot::Receiver as OnceRecv,
     sync::oneshot::Sender as OnceSend,
     task::JoinHandle,
+    time::{interval, Interval},
 };
 
-use crate::WatchEvent;
+use crate::futures::DirectoryWatchEvent;
 
 #[derive(Debug)]
 pub(crate) enum WatchRequestInner {
-    /// Create a new once watch
-    Once {
+    Start {
         path: PathBuf,
         flags: AddWatchFlags,
-        tx: OnceSend<WatchEvent>,
-    },
-
-    /// Create a new streaming watch
-    Stream {
-        path: PathBuf,
-        flags: AddWatchFlags,
-        tx: MpscSend<WatchEvent>,
+        dir: bool,
+        sender: Sender,
     },
 
     /// A watcher was dropped, so we should scan for it and remove it
@@ -43,6 +38,7 @@ pub struct WatcherState {
     instance: AsyncFd<Inotify>,
     request_rx: MpscRecv<WatchRequestInner>,
     shutdown: OnceRecv<()>,
+    clean_interval: Option<Interval>,
     watches: Watches,
 }
 
@@ -59,13 +55,21 @@ impl WatcherState {
     pub(crate) fn new(
         request_rx: MpscRecv<WatchRequestInner>,
         shutdown: OnceRecv<()>,
+        clean_duration: Option<Duration>,
     ) -> Result<Self, InitError> {
         let instance = AsyncFd::new(Inotify::init(InitFlags::IN_NONBLOCK)?)?;
+
+        let clean_interval = clean_duration.map(|duration| {
+            let mut it = interval(duration);
+            it.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            it
+        });
 
         Ok(Self {
             instance,
             request_rx,
             shutdown,
+            clean_interval,
             watches: Default::default(),
         })
     }
@@ -83,20 +87,35 @@ impl WatcherState {
     }
 
     async fn run(mut self) {
+        if let Some(ref mut tick) = self.clean_interval {
+            tick.reset();
+        }
+
+        fn maybe(interval: &mut Option<Interval>) -> impl Future + '_ {
+            match interval {
+                Some(interval) => Either::Left(interval.tick()),
+                None => Either::Right(std::future::pending()),
+            }
+        }
+
         loop {
             select! {
                 read_guard = self.instance.readable() => {
-                    self.watches.handle_events(read_guard.unwrap()).await.unwrap();
+                    self.watches.handle_events(read_guard.unwrap()).unwrap();
                 }
 
                 request = self.request_rx.recv() => {
                     match request {
-                        Some(event) => self.watches.handle_request(self.instance.get_ref(), event).await.unwrap(),
+                        Some(event) => self.watches.handle_request(self.instance.get_ref(), event).unwrap(),
 
                         // All senders have been dropped, so there will be no more watches
                         // requested
                         None => break,
                     }
+                }
+
+                _ = maybe(&mut self.clean_interval), if self.watches.dirty => {
+                    eprintln!("WOKE UP FOR CLEAN");
                 }
 
                 _ = &mut self.shutdown => {
@@ -108,35 +127,35 @@ impl WatcherState {
 }
 
 #[derive(Debug)]
-struct OnceWatcher {
-    flags: AddWatchFlags,
-    sender: OnceSend<WatchEvent>,
+pub(crate) enum Sender {
+    Once(OnceSend<DirectoryWatchEvent>),
+    Stream(MpscSend<DirectoryWatchEvent>),
+    None,
 }
 
 #[derive(Debug)]
-struct StreamWatcher {
+struct SingleWatch {
     flags: AddWatchFlags,
-    sender: MpscSend<WatchEvent>,
+    dir: bool,
+    remove: bool,
+    sender: Sender,
 }
 
 #[derive(Debug)]
 struct WatchState {
     path: PathBuf,
-    once: Vec<OnceWatcher>,
-    stream: Vec<StreamWatcher>,
+    watchers: Vec<SingleWatch>,
 }
 
 #[derive(Debug, Default)]
 struct Watches {
     watches: HashMap<WatchDescriptor, WatchState>,
     paths: HashMap<PathBuf, WatchDescriptor>,
+    pub dirty: bool,
 }
 
 impl Watches {
-    async fn handle_events(
-        &mut self,
-        mut guard: AsyncFdReadyGuard<'_, Inotify>,
-    ) -> Result<(), Errno> {
+    fn handle_events(&mut self, mut guard: AsyncFdReadyGuard<'_, Inotify>) -> Result<(), Errno> {
         eprintln!("Processing Events from Watches");
         let events = guard.get_inner().read_events()?;
 
@@ -154,27 +173,59 @@ impl Watches {
                     "Got event for path: {} with flags {flags:4X}",
                     watch.path.display()
                 );
-                let mut replace = Vec::with_capacity(watch.once.len() / 2);
 
-                for once in watch.once.drain(..) {
-                    if once.flags.intersects(flags) {
-                        let path = path.clone();
-
-                        let _ = once.sender.send(WatchEvent { flags, path });
-                    } else {
-                        // Events which do not match the current are not removed
-                        replace.push(once);
-                    }
+                let event = flags.try_into();
+                if event.is_err() {
+                    eprintln!("Got unexpected Flags: 0x{flags:8X}");
+                    continue;
                 }
 
-                std::mem::swap(&mut replace, &mut watch.once);
+                let event = DirectoryWatchEvent {
+                    inner_path: path.clone(),
+                    event: event.unwrap(),
+                };
 
-                for stream in watch.stream.iter_mut() {
-                    if stream.flags.intersects(flags) {
-                        let path = path.clone();
-
-                        let _ = stream.sender.try_send(WatchEvent { flags, path });
+                for watcher in watch.watchers.iter_mut() {
+                    if watcher.remove {
+                        continue;
                     }
+                    if !watcher.dir && path.is_some() {
+                        continue;
+                    }
+
+                    if !flags.intersects(watcher.flags) {
+                        continue;
+                    }
+
+                    // We know that this is an event that they want
+                    // So take the sender, send, and replace the sender if necessary
+
+                    let mut replace = std::mem::replace(&mut watcher.sender, Sender::None);
+
+                    replace = match replace {
+                        Sender::Once(sender) => {
+                            let _ = sender.send(event.clone());
+
+                            watcher.remove = true;
+                            self.dirty = true;
+
+                            // send consumes sender, so we cannot defer drop
+                            Sender::None
+                        }
+                        Sender::Stream(sender) => {
+                            if let Err(TrySendError::Closed(_)) = sender.try_send(event.clone()) {
+                                watcher.remove = true;
+                                self.dirty = true;
+
+                                // we defer cleaning up the actual sender
+                            }
+
+                            Sender::Stream(sender)
+                        }
+                        otherwise => otherwise,
+                    };
+
+                    std::mem::swap(&mut replace, &mut watcher.sender);
                 }
             }
         }
@@ -183,48 +234,43 @@ impl Watches {
         Ok(())
     }
 
-    async fn handle_request(
+    fn handle_request(
         &mut self,
         inotify: &Inotify,
         request: WatchRequestInner,
     ) -> Result<(), Errno> {
         match request {
-            WatchRequestInner::Drop => self.clean_watches().await,
-            WatchRequestInner::Once { path, flags, tx } => {
-                eprintln!("Processing Once Request");
+            WatchRequestInner::Drop => {
+                self.dirty = true;
+            }
+            WatchRequestInner::Start {
+                path,
+                flags,
+                dir,
+                sender,
+            } => {
+                let watch = SingleWatch {
+                    flags,
+                    dir,
+                    remove: false,
+                    sender,
+                };
+
                 if let Some(wd) = self.paths.get(&path) {
                     let state = self.watches.get_mut(wd).unwrap();
-                    state.once.push(OnceWatcher { flags, sender: tx });
+                    state.watchers.push(watch);
                 } else {
                     let wd = inotify.add_watch(&path, flags)?;
                     let state = WatchState {
                         path: path.clone(),
-                        once: Vec::from([OnceWatcher { flags, sender: tx }]),
-                        stream: Default::default(),
+                        watchers: Vec::from([watch]),
                     };
 
                     self.paths.insert(path, wd);
                     self.watches.insert(wd, state);
                 }
             }
-            WatchRequestInner::Stream { path, flags, tx } => {
-                eprintln!("Processing Stream Request");
-                if let Some(wd) = self.paths.get(&path) {
-                    let state = self.watches.get_mut(wd).unwrap();
-                    state.stream.push(StreamWatcher { flags, sender: tx });
-                } else {
-                    let wd = inotify.add_watch(&path, flags)?;
-                    let state = WatchState {
-                        path: path.clone(),
-                        once: Default::default(),
-                        stream: Vec::from([StreamWatcher { flags, sender: tx }]),
-                    };
-
-                    self.paths.insert(path, wd);
-                    self.watches.insert(wd, state);
-                }
-            }
-        }
+        };
 
         Ok(())
     }

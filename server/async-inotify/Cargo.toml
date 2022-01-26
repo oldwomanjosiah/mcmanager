@@ -9,6 +9,8 @@ edition = "2021"
 nix = "0.23"
 thiserror = "1"
 tokio-stream = "0.1"
+futures = "0.3"
+
 
 [dependencies.tokio]
 version = "1"

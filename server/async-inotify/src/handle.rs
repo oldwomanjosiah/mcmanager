@@ -80,11 +80,12 @@ pub enum RequestError {
 
 #[derive(Debug, Error)]
 pub enum WatchError {
-    #[error("The watcher task was shutdown while before an event was received")]
+    #[error("The watcher task was shutdown while before the next event could be received")]
     WatcherShutdown,
 }
 
 impl Handle {
+    /// Create a file watch builder
     pub fn file(&mut self, path: PathBuf) -> Result<WatchRequest<'_, FileEvents>, RequestError> {
         if !path.exists() {
             return Err(RequestError::DoesNotExist(path));
@@ -99,11 +100,12 @@ impl Handle {
             handle: self,
             path,
             buffer,
-            flags: AddWatchFlags::IN_MODIFY,
+            flags: AddWatchFlags::empty(),
             _type: Default::default(),
         })
     }
 
+    /// Create a directory watch builder
     pub fn dir(
         &mut self,
         path: PathBuf,
@@ -121,7 +123,7 @@ impl Handle {
             handle: self,
             path,
             buffer,
-            flags: AddWatchFlags::IN_MODIFY,
+            flags: AddWatchFlags::empty(),
             _type: Default::default(),
         })
     }
@@ -144,6 +146,7 @@ impl sealed::Sealed for DirectoryEvents {}
 impl WatchType for FileEvents {
     const DEFAULT_BUFFER: usize = 16;
 }
+
 impl WatchType for DirectoryEvents {
     const DEFAULT_BUFFER: usize = 32;
 }
@@ -156,36 +159,78 @@ pub struct WatchRequest<'handle, T: WatchType> {
     _type: PhantomData<T>,
 }
 
+impl<T: WatchType> WatchRequest<'_, T> {
+    /// Set the amount of items for this watch to buffer
+    pub fn buffer(mut self, size: usize) -> Self {
+        self.buffer = size;
+        self
+    }
+
+    /// Set weather file read events should be captured
+    pub fn read(mut self, set: bool) -> Self {
+        self.flags.set(AddWatchFlags::IN_ACCESS, set);
+        self
+    }
+
+    /// Set weather file open events should be captured
+    pub fn modify(mut self, set: bool) -> Self {
+        self.flags.set(AddWatchFlags::IN_MODIFY, set);
+        self
+    }
+
+    /// Set weather file open events should be captured
+    pub fn open(mut self, set: bool) -> Self {
+        self.flags.set(AddWatchFlags::IN_OPEN, set);
+        self
+    }
+
+    /// Set weather file close events should be generated
+    pub fn close(mut self, set: bool) -> Self {
+        self.flags.set(AddWatchFlags::IN_CLOSE, set);
+        self
+    }
+
+    // TODO(josiah) moves will require a more robust background task so that move events can be
+    // coalesced correctly
+}
+
 impl<'handle> WatchRequest<'handle, FileEvents> {
+    /// Create a watch which will only return the next captured event, and then unsubscribe
+    ///
+    /// Ignores the value set by [`buffer`]
     pub fn next(self) -> Result<FileWatchFuture, WatchError> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
+        let (sender, rx) = tokio::sync::oneshot::channel();
+
+        let sender = crate::task::Sender::Once(sender);
 
         self.handle
             .request_tx
-            .try_send(WatchRequestInner::Once {
+            .try_send(WatchRequestInner::Start {
                 flags: self.flags,
                 path: self.path,
-                tx,
+                dir: false,
+                sender,
             })
             .map_err(|_| WatchError::WatcherShutdown)?;
 
         Ok(FileWatchFuture(rx))
     }
 
-    pub fn buffer(mut self, size: usize) -> Self {
-        self.buffer = size;
-        self
-    }
-
+    /// Create a watch which will capture and return a stream of events until dropped.
+    ///
+    /// Will keep oldest events on buffer overflow set by [`buffer`]
     pub fn watch(self) -> Result<FileWatchStream, WatchError> {
-        let (tx, rx) = tokio::sync::mpsc::channel(self.buffer);
+        let (sender, rx) = tokio::sync::mpsc::channel(self.buffer);
+
+        let sender = crate::task::Sender::Stream(sender);
 
         self.handle
             .request_tx
-            .try_send(WatchRequestInner::Stream {
+            .try_send(WatchRequestInner::Start {
                 flags: self.flags,
                 path: self.path,
-                tx,
+                dir: false,
+                sender,
             })
             .map_err(|_| WatchError::WatcherShutdown)?;
 
@@ -194,35 +239,42 @@ impl<'handle> WatchRequest<'handle, FileEvents> {
 }
 
 impl<'handle> WatchRequest<'handle, DirectoryEvents> {
+    /// Create a watch which will only return the next captured event, and then unsubscribe
+    ///
+    /// Ignores the value set by [`buffer`]
     pub fn next(self) -> Result<DirectoryWatchFuture, WatchError> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
+        let (sender, rx) = tokio::sync::oneshot::channel();
+
+        let sender = crate::task::Sender::Once(sender);
 
         self.handle
             .request_tx
-            .try_send(WatchRequestInner::Once {
+            .try_send(WatchRequestInner::Start {
                 flags: self.flags,
                 path: self.path,
-                tx,
+                dir: true,
+                sender,
             })
             .map_err(|_| WatchError::WatcherShutdown)?;
 
         Ok(DirectoryWatchFuture(rx))
     }
 
-    pub fn buffer(mut self, size: usize) -> Self {
-        self.buffer = size;
-        self
-    }
-
+    /// Create a watch which will capture and return a stream of events until dropped.
+    ///
+    /// Will keep oldest events on buffer overflow set by [`buffer`]
     pub fn watch(self) -> Result<DirectoryWatchStream, WatchError> {
-        let (tx, rx) = tokio::sync::mpsc::channel(self.buffer);
+        let (sender, rx) = tokio::sync::mpsc::channel(self.buffer);
+
+        let sender = crate::task::Sender::Stream(sender);
 
         self.handle
             .request_tx
-            .try_send(WatchRequestInner::Stream {
+            .try_send(WatchRequestInner::Start {
                 flags: self.flags,
                 path: self.path,
-                tx,
+                dir: true,
+                sender,
             })
             .map_err(|_| WatchError::WatcherShutdown)?;
 
