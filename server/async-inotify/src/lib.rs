@@ -9,6 +9,8 @@ use task::InitError;
 pub mod futures;
 pub mod handle;
 mod task;
+#[macro_use]
+mod tracing;
 
 // TODO(josiah) convert this to a builder style to allow for request buffer configurations, as well
 // as max watchers
@@ -17,7 +19,11 @@ pub fn new() -> Result<OwnedHandle, InitError> {
     let inner = Handle { request_tx };
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
 
-    let join = task::WatcherState::new(request_rx, shutdown_rx, None)?.launch();
+    let join = task::WatcherState::launch(Box::new(task::WatcherState::new(
+        request_rx,
+        shutdown_rx,
+        None,
+    )?));
 
     Ok(OwnedHandle {
         inner,

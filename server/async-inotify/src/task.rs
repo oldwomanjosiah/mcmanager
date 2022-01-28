@@ -1,11 +1,11 @@
 use std::{collections::HashMap, ffi::OsString, path::PathBuf, time::Duration};
 
-use futures::{future::Either, Future};
 use nix::{
     errno::Errno,
     sys::inotify::{AddWatchFlags, InitFlags, Inotify, WatchDescriptor},
 };
 use thiserror::Error;
+use tokio::io::Interest;
 use tokio::{
     io::unix::{AsyncFd, AsyncFdReadyGuard},
     select,
@@ -57,7 +57,8 @@ impl WatcherState {
         shutdown: OnceRecv<()>,
         clean_duration: Option<Duration>,
     ) -> Result<Self, InitError> {
-        let instance = AsyncFd::new(Inotify::init(InitFlags::IN_NONBLOCK)?)?;
+        let instance =
+            AsyncFd::with_interest(Inotify::init(InitFlags::IN_NONBLOCK)?, Interest::READABLE)?;
 
         let clean_interval = clean_duration.map(|duration| {
             let mut it = interval(duration);
@@ -75,38 +76,48 @@ impl WatcherState {
     }
 
     #[cfg(all(tokio_unstable, feature = "tracing"))]
-    pub fn launch(self) -> JoinHandle<()> {
+    pub fn launch(self: Box<Self>) -> JoinHandle<()> {
         tokio::task::Builder::new()
             .name("Inotify Watcher")
             .spawn(self.run())
     }
 
-    #[cfg(not(all(tokio_unstable, feature = "tracing")))]
-    pub fn launch(self) -> JoinHandle<()> {
+    #[cfg(not(any(tokio_unstable, feature = "tracing")))]
+    pub fn launch(self: Box<Self>) -> JoinHandle<()> {
         tokio::spawn(self.run())
     }
 
-    async fn run(mut self) {
+    async fn run(mut self: Box<Self>) {
         if let Some(ref mut tick) = self.clean_interval {
             tick.reset();
         }
 
-        fn maybe(interval: &mut Option<Interval>) -> impl Future + '_ {
+        async fn maybe(interval: &mut Option<Interval>) {
             match interval {
-                Some(interval) => Either::Left(interval.tick()),
-                None => Either::Right(std::future::pending()),
-            }
+                Some(interval) => interval.tick().await,
+                None => std::future::pending().await,
+            };
         }
 
+        // TODO(josiah) collect inner errors here for reporting, and exit instead of panicking
+        //
+        // possibly use a single_step function that returns a result, and then change run to call
+        // that in a loop reporting errors?
         loop {
             select! {
-                read_guard = self.instance.readable() => {
-                    self.watches.handle_events(read_guard.unwrap()).unwrap();
+                biased;
+
+                _ = &mut self.shutdown => {
+                    break;
+                }
+
+                Ok(read_guard) = self.instance.readable() => {
+                    self.watches.handle_events(read_guard).await.unwrap();
                 }
 
                 request = self.request_rx.recv() => {
                     match request {
-                        Some(event) => self.watches.handle_request(self.instance.get_ref(), event).unwrap(),
+                        Some(event) => self.watches.handle_request(self.instance.get_ref(), event).await.unwrap(),
 
                         // All senders have been dropped, so there will be no more watches
                         // requested
@@ -116,10 +127,6 @@ impl WatcherState {
 
                 _ = maybe(&mut self.clean_interval), if self.watches.dirty => {
                     eprintln!("WOKE UP FOR CLEAN");
-                }
-
-                _ = &mut self.shutdown => {
-                    break;
                 }
             }
         }
@@ -155,8 +162,14 @@ struct Watches {
 }
 
 impl Watches {
-    fn handle_events(&mut self, mut guard: AsyncFdReadyGuard<'_, Inotify>) -> Result<(), Errno> {
+    async fn handle_events(
+        &mut self,
+        mut guard: AsyncFdReadyGuard<'_, Inotify>,
+    ) -> Result<(), Errno> {
         eprintln!("Processing Events from Watches");
+
+        // This should be infallable because we set the FD to non-blocking
+        //   and we were woken by the executor with readable
         let events = guard.get_inner().read_events()?;
 
         for event in events.into_iter() {
@@ -234,7 +247,7 @@ impl Watches {
         Ok(())
     }
 
-    fn handle_request(
+    async fn handle_request(
         &mut self,
         inotify: &Inotify,
         request: WatchRequestInner,
