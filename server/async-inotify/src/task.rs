@@ -87,11 +87,7 @@ impl WatcherState {
         tokio::spawn(self.run())
     }
 
-    async fn run(mut self: Box<Self>) {
-        if let Some(ref mut tick) = self.clean_interval {
-            tick.reset();
-        }
-
+    async fn step(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
         async fn maybe(interval: &mut Option<Interval>) {
             match interval {
                 Some(interval) => interval.tick().await,
@@ -99,34 +95,62 @@ impl WatcherState {
             };
         }
 
-        // TODO(josiah) collect inner errors here for reporting, and exit instead of panicking
-        //
-        // possibly use a single_step function that returns a result, and then change run to call
-        // that in a loop reporting errors?
-        loop {
-            select! {
-                biased;
+        select! {
+            biased;
 
-                _ = &mut self.shutdown => {
-                    break;
-                }
+            _ = &mut self.shutdown => {
+                Ok(false)
+            }
 
-                Ok(read_guard) = self.instance.readable() => {
-                    self.watches.handle_events(read_guard).await.unwrap();
-                }
+            Ok(read_guard) = self.instance.readable() => {
+                self.watches
+                    .handle_events(read_guard)
+                    .await?;
 
-                request = self.request_rx.recv() => {
-                    match request {
-                        Some(event) => self.watches.handle_request(self.instance.get_ref(), event).await.unwrap(),
+                Ok(true)
+            }
 
-                        // All senders have been dropped, so there will be no more watches
-                        // requested
-                        None => break,
+            request = self.request_rx.recv() => {
+                match request {
+                    Some(event) => {
+                        self.watches
+                            .handle_request(self.instance.get_ref(), event)
+                            .await?;
+
+                        Ok(false)
+                    }
+
+                    None => {
+                        crate::info!("All Handles Dropped, Exiting");
+
+                        Ok(false)
                     }
                 }
+            }
 
-                _ = maybe(&mut self.clean_interval), if self.watches.dirty => {
-                    eprintln!("WOKE UP FOR CLEAN");
+            _ = maybe(&mut self.clean_interval), if self.watches.dirty => {
+                eprintln!("WOKE UP FOR CLEAN");
+
+                Ok(true)
+            }
+        }
+    }
+
+    async fn run(mut self: Box<Self>) {
+        if let Some(ref mut tick) = self.clean_interval {
+            tick.reset();
+        }
+
+        loop {
+            match self.step().await {
+                Ok(cont) => {
+                    if !cont {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    crate::error!("Got unexpected error in event loop: {e}");
+                    break;
                 }
             }
         }
