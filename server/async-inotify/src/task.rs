@@ -75,16 +75,17 @@ impl WatcherState {
         })
     }
 
-    #[cfg(all(tokio_unstable, feature = "tracing"))]
     pub fn launch(self: Box<Self>) -> JoinHandle<()> {
-        tokio::task::Builder::new()
-            .name("Inotify Watcher")
-            .spawn(self.run())
-    }
-
-    #[cfg(not(any(tokio_unstable, feature = "tracing")))]
-    pub fn launch(self: Box<Self>) -> JoinHandle<()> {
-        tokio::spawn(self.run())
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        {
+            tokio::task::Builder::new()
+                .name("Inotify Watcher")
+                .spawn(self.run())
+        }
+        #[cfg(not(any(tokio_unstable, feature = "tracing")))]
+        {
+            tokio::spawn(self.run())
+        }
     }
 
     async fn step(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
@@ -99,6 +100,8 @@ impl WatcherState {
             biased;
 
             _ = &mut self.shutdown => {
+                crate::info!("Shutting Down");
+
                 Ok(false)
             }
 
