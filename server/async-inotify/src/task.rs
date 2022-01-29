@@ -132,7 +132,10 @@ impl WatcherState {
             }
 
             _ = maybe(&mut self.clean_interval), if self.watches.dirty => {
-                eprintln!("WOKE UP FOR CLEAN");
+                crate::error!("WOKE UP FOR CLEAN");
+
+                // TODO(josiah) this needs to find the watches that can be narrowed or removed
+                // and then mark dirty as false
 
                 Ok(true)
             }
@@ -313,10 +316,5 @@ impl Watches {
         };
 
         Ok(())
-    }
-
-    async fn clean_watches(&mut self) {
-        eprintln!("Cleaning Watches");
-        todo!("Find and remove unused watches");
     }
 }
