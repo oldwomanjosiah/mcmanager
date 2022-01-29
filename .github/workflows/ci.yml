@@ -10,13 +10,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - name: Build
-        uses: MarcoPolo/cargo@a527bf4d534717ff4424a84446c5d710f8833139
-        with:
-          command: build
-          working-directory: server
       - name: Run All Tests
         uses: MarcoPolo/cargo@a527bf4d534717ff4424a84446c5d710f8833139
         with:
           command: test
+          args: --workspace
           working-directory: server
