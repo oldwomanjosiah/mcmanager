@@ -120,7 +120,7 @@ impl WatcherState {
                             .handle_request(self.instance.get_ref(), event)
                             .await?;
 
-                        Ok(false)
+                        Ok(true)
                     }
 
                     None => {
