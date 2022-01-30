@@ -8,6 +8,10 @@ extern crate tracing_subscriber;
 #[macro_use]
 extern crate async_stream;
 
+use std::path::PathBuf;
+
+use application::Configuration;
+use auth::manager::{AuthManager, AuthManagerConfig};
 use clap::StructOpt;
 
 use data::IntoServer;
@@ -20,6 +24,8 @@ mod prelude;
 mod util;
 
 use prelude::*;
+
+use crate::application::SubCommand;
 
 mod hello_world {
     use crate::information::SystemInfo;
@@ -125,6 +131,15 @@ async fn main() -> Result<()> {
 
     tracing::info!("{args:#?}");
 
+    match args.subcommand {
+        None => start_server().await,
+        Some(SubCommand::Validate { creating }) => {
+            validate_config(args.config_location_or_default(), creating).await
+        }
+    }
+}
+
+async fn start_server() -> Result<()> {
     let rx = information::start_sysinfo();
 
     tokio::task::Builder::new()
@@ -133,6 +148,28 @@ async fn main() -> Result<()> {
         .await??;
 
     info!("Ended with value: {:#?}", rx.borrow());
+
+    Ok(())
+}
+
+async fn validate_config(config_location: PathBuf, creating: bool) -> Result<()> {
+    let config = Configuration::get(&config_location).or_else(|e| {
+        if let Ok(e) = e.downcast::<std::io::Error>() {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                return Err(e).map_err(Into::into);
+            }
+        }
+
+        let def: Configuration = Default::default();
+        def.put(&config_location).map(|_| def)
+    })?;
+
+    AuthManager::validate(
+        &AuthManagerConfig {
+            users_file: config.users,
+        },
+        creating,
+    )?;
 
     Ok(())
 }

@@ -1,6 +1,7 @@
 const PROTOS: &[&str] = &[
     "proto/helloworld/helloworld.proto",
     "proto/event/event.proto",
+    "proto/auth/auth.proto",
 ];
 const INCLUDES: &[&str] = &["proto"];
 

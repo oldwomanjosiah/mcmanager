@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [ "data", "async-inotify" ]
+members = [ "data", "auth", "async-inotify" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -32,7 +32,11 @@ prost = { version = "0.9" }
 # information
 sysinfo = "0.22"
 
+serde = { version = "1.0", features = [ "derive" ] }
+serde_yaml = "0.8"
+
 data = { path = "data" }
+auth = { path = "auth" }
 
 [build-dependencies]
 tonic-build = { version = "0.6", features = [ "prost", "compression" ] }
